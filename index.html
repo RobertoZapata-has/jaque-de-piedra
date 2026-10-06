@@ -2,65 +2,147 @@
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#15110e">
 <title>Jaque de Piedra</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<script type="importmap">{"imports":{
+  "three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+}}</script>
 <style>
 :root{
-  --bg:#15110e; --panel:#221b16f2; --line:#4a3a2c; --ink:#f1e7d6; --muted:#b9a88f;
-  --gold:#e8c374; --gold-ink:#2a1d0c; --red:#ff6b5a; --ok:#7fe0a6;
+  --bg:#15110e; --panel:#221b16f0; --line:#4a3a2c; --ink:#f1e7d6; --muted:#b9a88f;
+  --gold:#e8c374; --gold-ink:#2a1d0c; --red:#ff5a4a; --ok:#7fe0a6;
+  --st:env(safe-area-inset-top); --sb:env(safe-area-inset-bottom);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+button{font-family:inherit}
 #c{position:fixed;inset:0;width:100%;height:100%;display:block}
 #hud{position:fixed;inset:0;pointer-events:none}
+#hud > *{pointer-events:auto}
 #top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;
-  padding:calc(env(safe-area-inset-top) + 12px) 14px 10px}
-#status{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
-  padding:9px 14px;border-radius:999px;font-weight:600;font-size:15px;max-width:70vw}
-#turnDot{width:14px;height:14px;border-radius:50%;flex:none;border:2px solid #0006;background:#eee}
+  padding:calc(var(--st) + 10px) 12px 0;pointer-events:none}
+#top > *{pointer-events:auto}
+#status{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--line);
+  padding:9px 13px;border-radius:999px;font-weight:600;font-size:15px;min-width:0}
+#turnDot{width:13px;height:13px;border-radius:50%;flex:none;border:2px solid #0006;background:#eee}
 #statusText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.btns{display:flex;gap:8px}
-.ico{pointer-events:auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
-  color:var(--ink);font-size:19px;display:grid;place-items:center;cursor:pointer}
-#conn{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 16px);
-  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:14px;color:var(--muted);
+.btns{display:flex;gap:7px;flex:none}
+.ico{width:42px;height:42px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
+  color:var(--ink);font-size:18px;display:grid;place-items:center;cursor:pointer;padding:0;position:relative}
+
+/* filas de jugador (tanteador + reloj) */
+.prow{position:absolute;left:12px;right:12px;display:flex;align-items:center;gap:8px;height:42px;padding:0 6px 0 12px;
+  background:var(--panel);border:1px solid var(--line);border-radius:14px;font-size:14px}
+#rowTop{top:calc(var(--st) + 62px)}
+#rowBot{bottom:calc(var(--sb) + 12px);right:66px}
+.pdot{width:12px;height:12px;border-radius:50%;flex:none;border:2px solid #0006}
+.pname{font-weight:700;white-space:nowrap}
+.caps{flex:1;min-width:0;overflow:hidden;white-space:nowrap;font-size:19px;letter-spacing:-3px;line-height:1}
+.caps .cw{color:#f3ead8;text-shadow:0 0 1px #000,0 0 2px #000}
+.caps .cb{color:#2a2b33;text-shadow:0 0 1px #d8cfc0,0 0 2px #d8cfc0}
+.adv{color:var(--gold);font-weight:800;font-size:13px;white-space:nowrap}
+.clock{font-variant-numeric:tabular-nums;font-weight:800;font-size:17px;padding:5px 9px;border-radius:9px;background:#120e0b;
+  color:var(--muted);min-width:62px;text-align:center;border:1px solid transparent}
+.clock[hidden]{display:none}
+.prow[hidden]{display:none}
+.clock.on{background:var(--gold);color:var(--gold-ink)}
+.clock.low{background:#b3261e;color:#fff;animation:pulse .8s infinite}
+@keyframes pulse{50%{transform:scale(1.07)}}
+#btnChat{position:absolute;right:12px;bottom:calc(var(--sb) + 12px);width:46px;height:42px;border-radius:14px}
+#btnChat[hidden]{display:none}
+#badge{position:absolute;top:-6px;right:-6px;min-width:20px;height:20px;border-radius:10px;background:var(--red);color:#fff;
+  font-size:12px;font-weight:800;display:grid;place-items:center;padding:0 5px}
+#badge:empty{display:none}
+#conn{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(var(--sb) + 64px);
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;font-size:13px;color:var(--muted);
   white-space:nowrap;display:flex;align-items:center;gap:8px}
-#conn::before{content:"";width:9px;height:9px;border-radius:50%;background:#e0a84f;box-shadow:0 0 8px #e0a84f}
 #conn[hidden]{display:none}
+#conn::before{content:"";width:8px;height:8px;border-radius:50%;background:#e0a84f;box-shadow:0 0 8px #e0a84f}
 #conn.ok{color:var(--ink)} #conn.ok::before{background:var(--ok);box-shadow:0 0 8px var(--ok)}
-#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translate(-50%,-10px);opacity:0;
-  background:var(--gold);color:var(--gold-ink);font-weight:700;padding:10px 18px;border-radius:12px;transition:.25s;pointer-events:none;
-  max-width:88vw;text-align:center;font-size:15px;z-index:30}
+
+#toast{position:fixed;left:50%;top:calc(var(--st) + 112px);transform:translate(-50%,-10px);opacity:0;
+  background:var(--gold);color:var(--gold-ink);font-weight:700;padding:10px 16px;border-radius:12px;transition:.25s;pointer-events:none;
+  width:max-content;max-width:88vw;text-align:center;font-size:15px;z-index:40}
 #toast.show{opacity:1;transform:translate(-50%,0)}
-.overlay{position:fixed;inset:0;display:grid;place-items:center;padding:20px;background:#0b0806b3;z-index:20;
+
+/* GRITO de jaque / mate */
+#shout{position:fixed;inset:0;display:none;place-items:center;pointer-events:none;z-index:35;text-align:center}
+#shout.show{display:grid}
+#shout .vig{position:absolute;inset:0;background:radial-gradient(ellipse at center,transparent 35%,rgba(190,10,0,.6) 100%);animation:vig 1.4s ease-out forwards}
+#shout.mate .vig{background:radial-gradient(ellipse at center,rgba(0,0,0,.25) 20%,rgba(120,0,0,.85) 100%);animation:vig 2.8s ease-out forwards}
+#shout.time .vig{background:radial-gradient(ellipse at center,transparent 30%,rgba(30,60,160,.6) 100%)}
+#shout .inner{position:relative;animation:slam 1.4s cubic-bezier(.2,.9,.3,1) forwards}
+#shout.mate .inner{animation-duration:2.8s}
+#shout .txt{font-family:Cinzel,Georgia,serif;font-weight:900;line-height:.92;color:#ff3b26;letter-spacing:.02em;
+  font-size:clamp(60px,19vw,150px);-webkit-text-stroke:2px #3a0500;
+  text-shadow:0 0 28px #ff2200,0 0 60px #ff220088,0 6px 0 #5a0700,0 10px 22px #000}
+#shout.mate .txt{color:#ffd56b;-webkit-text-stroke:2px #3a2200;text-shadow:0 0 30px #ff8a00,0 0 70px #ff3d0088,0 7px 0 #5a2c00,0 12px 26px #000;font-size:clamp(64px,21vw,170px)}
+#shout.time .txt{color:#9fc2ff;-webkit-text-stroke:2px #001544;text-shadow:0 0 30px #3d7bff,0 6px 0 #0b2466,0 10px 22px #000}
+#shout .sub{margin-top:14px;font-weight:800;font-size:clamp(18px,5.4vw,30px);color:#fff;text-shadow:0 2px 8px #000,0 0 20px #000}
+@keyframes slam{0%{transform:scale(3.2);opacity:0}14%{transform:scale(.9);opacity:1}22%{transform:scale(1.06)}30%{transform:scale(1)}82%{opacity:1;transform:scale(1.02)}100%{opacity:0;transform:scale(1.08)}}
+@keyframes vig{0%{opacity:0}10%{opacity:1}75%{opacity:.8}100%{opacity:0}}
+
+/* overlays */
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding:20px;background:#0b0806b3;z-index:30;
   backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
 .overlay[hidden]{display:none}
-.overlay.soft{background:#0b080666}
+.overlay.soft{background:#0b080677}
 .card{width:min(380px,100%);background:linear-gradient(180deg,#2a2119,#1b1511);border:1px solid var(--line);border-radius:20px;
-  padding:26px 22px 22px;box-shadow:0 20px 60px #000a;text-align:center}
+  padding:24px 20px 20px;box-shadow:0 20px 60px #000a;text-align:center;max-height:calc(100% - 20px);overflow:auto}
 h1,h2{font-family:Cinzel,Georgia,serif;margin:0 0 6px;letter-spacing:.04em;color:var(--gold)}
 h1{font-size:30px;font-weight:800;line-height:1.1}
 h2{font-size:22px}
-.sub{color:var(--muted);margin:0 0 22px;font-size:15px;line-height:1.4}
-.card button.btn{display:block;width:100%;margin-top:10px;padding:15px;border-radius:14px;border:1px solid var(--line);
+.sub{color:var(--muted);margin:0 0 18px;font-size:15px;line-height:1.4}
+.card button.btn{display:block;width:100%;margin-top:10px;padding:14px;border-radius:14px;border:1px solid var(--line);
   background:#30261d;color:var(--ink);font-size:16px;font-weight:600;cursor:pointer}
 .card button.primary{background:var(--gold);color:var(--gold-ink);border-color:#f3d79a}
 .card button:active{transform:scale(.98)}
+.lbl{font-size:13px;color:var(--muted);text-align:left;margin:4px 2px 6px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+.chips button{flex:1 0 auto;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:#30261d;color:var(--ink);font-size:14px;font-weight:600}
+.chips button.sel{background:var(--gold);color:var(--gold-ink);border-color:#f3d79a}
 .link{display:block;width:100%;margin:6px 0 4px;padding:12px;border-radius:12px;border:1px dashed var(--line);background:#120e0b;
   color:var(--gold);font-size:14px;word-break:break-all;text-align:center;user-select:text;-webkit-user-select:text}
 .wait{color:var(--muted);font-size:14px;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.wait[hidden]{display:none}
 .spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--gold);animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 .promo{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
-.promo button{aspect-ratio:1;font-size:40px;border-radius:14px;border:1px solid var(--line);background:#30261d;color:var(--ink);cursor:pointer;line-height:1}
+.promo button{aspect-ratio:1;font-size:42px;border-radius:14px;border:1px solid var(--line);background:#30261d;color:var(--ink);cursor:pointer;line-height:1;display:grid;place-items:center}
+.promo small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .menu button.btn{text-align:left}
 .big{font-size:44px;margin-bottom:4px}
+
+/* chat */
+#chat{position:fixed;left:0;right:0;bottom:0;height:min(72%,560px);z-index:28;background:#1b1511;border-top:1px solid var(--line);
+  border-radius:20px 20px 0 0;display:flex;flex-direction:column;box-shadow:0 -14px 40px #000a;transform:translateY(105%);transition:transform .25s}
+#chat.open{transform:none}
+#chatHead{display:flex;align-items:center;justify-content:space-between;padding:12px 14px 8px}
+#chatHead b{font-family:Cinzel,Georgia,serif;color:var(--gold);font-size:18px}
+#msgs{flex:1;overflow-y:auto;padding:6px 14px;display:flex;flex-direction:column;gap:6px;touch-action:pan-y;user-select:text;-webkit-user-select:text}
+.msg{max-width:80%;padding:8px 12px;border-radius:14px;font-size:15px;line-height:1.35;word-wrap:break-word;background:#30261d;align-self:flex-start;border-bottom-left-radius:4px}
+.msg.me{align-self:flex-end;background:var(--gold);color:var(--gold-ink);border-bottom-left-radius:14px;border-bottom-right-radius:4px}
+.msg.emo{background:none;font-size:40px;padding:0 4px}
+.msg.sys{align-self:center;background:none;color:var(--muted);font-size:12px}
+#quick,#emos{display:flex;gap:6px;overflow-x:auto;padding:6px 12px;touch-action:pan-x;scrollbar-width:none}
+#quick::-webkit-scrollbar,#emos::-webkit-scrollbar{display:none}
+#quick button{flex:none;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:#2a2119;color:var(--ink);font-size:14px;white-space:nowrap}
+#emos button{flex:none;width:42px;height:42px;border-radius:12px;border:1px solid var(--line);background:#2a2119;font-size:24px;padding:0}
+#chatForm{display:flex;gap:8px;padding:8px 12px calc(var(--sb) + 10px)}
+#chatInput{flex:1;min-width:0;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:#120e0b;color:var(--ink);font-size:16px;user-select:text;-webkit-user-select:text}
+#chatForm button{padding:0 16px;border-radius:12px;border:0;background:var(--gold);color:var(--gold-ink);font-weight:800;font-size:15px}
+#peek{position:fixed;left:12px;right:70px;bottom:calc(var(--sb) + 62px);z-index:27;background:#2a2119f5;border:1px solid var(--line);
+  border-radius:14px;padding:10px 12px;font-size:15px;transform:translateY(20px);opacity:0;transition:.25s;pointer-events:none;
+  overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#peek.show{transform:none;opacity:1;pointer-events:auto}
+.bigemo{position:fixed;bottom:22%;font-size:96px;pointer-events:none;z-index:36;animation:rise 2.4s ease-out forwards}
+@keyframes rise{0%{transform:translate(-50%,40px) scale(.3);opacity:0}14%{transform:translate(-50%,0) scale(1.2);opacity:1}28%{transform:translate(-50%,-10px) scale(1)}100%{transform:translate(-50%,-300px) scale(1);opacity:0}}
 </style>
 </head>
 <body>
@@ -70,19 +152,35 @@ h2{font-size:22px}
   <div id="top">
     <div id="status"><span id="turnDot"></span><span id="statusText">Jaque de Piedra</span></div>
     <div class="btns">
+      <button class="ico" id="btnView" aria-label="Cambiar vista">👁</button>
       <button class="ico" id="btnSound" aria-label="Sonido">🔊</button>
       <button class="ico" id="btnMenu" aria-label="Menú">☰</button>
     </div>
   </div>
-  <div id="conn" hidden>Esperando rival…</div>
+  <div class="prow" id="rowTop" hidden><span class="pdot"></span><span class="pname"></span><span class="caps"></span><span class="adv"></span><span class="clock" hidden></span></div>
+  <div id="conn" hidden></div>
+  <div class="prow" id="rowBot" hidden><span class="pdot"></span><span class="pname"></span><span class="caps"></span><span class="adv"></span><span class="clock" hidden></span></div>
+  <button class="ico" id="btnChat" aria-label="Chat" hidden>💬<span id="badge"></span></button>
 </div>
 <div id="toast"></div>
+<div id="shout"></div>
+<div id="peek"></div>
+
+<div id="chat" aria-hidden="true">
+  <div id="chatHead"><b>Chat</b><button class="ico" id="chatClose" aria-label="Cerrar chat">✕</button></div>
+  <div id="msgs"></div>
+  <div id="quick"></div>
+  <div id="emos"></div>
+  <form id="chatForm" autocomplete="off"><input id="chatInput" maxlength="300" placeholder="Escribí algo…"><button type="submit">Enviar</button></form>
+</div>
 
 <section class="overlay" id="ovStart">
   <div class="card">
     <div class="big">♜</div>
     <h1>Jaque de Piedra</h1>
-    <p class="sub">Ajedrez de piezas de piedra que se hacen pedazos cuando las comen.</p>
+    <p class="sub">Ajedrez de estatuas de piedra que se hacen pedazos cuando las comen.</p>
+    <div class="lbl">⏱ Reloj por jugador</div>
+    <div class="chips clockChips"></div>
     <button class="btn primary" id="btnHost">Crear partida online</button>
     <button class="btn" id="btnLocal">Jugar los dos en este celu</button>
   </div>
@@ -111,9 +209,20 @@ h2{font-size:22px}
 
 <section class="overlay soft" id="ovPromo" hidden>
   <div class="card">
-    <h2>Coronación</h2>
-    <p class="sub" style="margin-bottom:0">¿En qué se convierte el peón?</p>
+    <h2>¡Coronación!</h2>
+    <p class="sub" style="margin-bottom:0">Tu campesino llegó al final. ¿En qué se convierte?</p>
     <div class="promo" id="promoBtns"></div>
+    <button class="btn" id="promoCancel">Cancelar la jugada</button>
+  </div>
+</section>
+
+<section class="overlay soft" id="ovClock" hidden>
+  <div class="card">
+    <h2>⏱ Reloj</h2>
+    <p class="sub">Tiempo para cada jugador. Al cambiarlo, los dos relojes arrancan de nuevo con ese tiempo.</p>
+    <div class="chips clockChips" id="clockChipsMenu"></div>
+    <button class="btn primary" id="clockApply">Aplicar</button>
+    <button class="btn" id="clockClose">Cerrar</button>
   </div>
 </section>
 
@@ -131,8 +240,9 @@ h2{font-size:22px}
   <div class="card menu">
     <h2 style="text-align:center">Menú</h2>
     <button class="btn" id="mInvite">🔗 Link para tu amigo</button>
+    <button class="btn" id="mClock">⏱ Reloj</button>
     <button class="btn" id="mRematch">♻️ Nueva partida</button>
-    <button class="btn" id="mFlip">🔄 Girar la vista</button>
+    <button class="btn" id="mFlip">🔄 Girar el tablero</button>
     <button class="btn" id="mHome">🏠 Volver al inicio</button>
     <button class="btn primary" id="mClose" style="text-align:center">Cerrar</button>
   </div>
@@ -140,6 +250,7 @@ h2{font-size:22px}
 
 <script type="module">
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/esm/chess.js';
 
 const $ = id => document.getElementById(id);
@@ -147,6 +258,7 @@ const params = new URLSearchParams(location.search);
 const PEER_PREFIX = 'jaque-piedra-v1-';
 const opp = c => c === 'w' ? 'b' : 'w';
 const rnd = Math.random;
+const now = () => performance.now();
 
 /* =========================================================
    SONIDO (sintetizado, sin archivos)
@@ -180,7 +292,6 @@ const Sfx = {
     const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
     o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + .05);
   },
-  // Piedra que se parte: golpe grave + crack + lluvia de cascotes
   shatter() {
     if (!this.ok()) return; const t = this.ctx.currentTime;
     this.tone(t, { f0: 140, f1: 34, dur: .5, gain: 1 });
@@ -202,9 +313,13 @@ const Sfx = {
     if (!this.ok()) return; const t = this.ctx.currentTime; if (t - this.lastPebble < .03) return; this.lastPebble = t;
     this.noise(t, { dur: .015 + rnd() * .03, freq: 2000 + rnd() * 4500, q: 5, gain: Math.min(.2, .03 + v * .035) });
   },
-  check() {
+  boom(big) {
     if (!this.ok()) return; const t = this.ctx.currentTime;
-    this.tone(t, { f0: 196, f1: 190, dur: .6, gain: .28, type: 'triangle' }); this.tone(t + .1, { f0: 233, f1: 228, dur: .6, gain: .2, type: 'triangle' });
+    this.tone(t, { f0: big ? 90 : 120, f1: 26, dur: big ? 1.6 : .9, gain: 1 });
+    this.noise(t, { dur: big ? 1.4 : .7, freq: 260, q: .4, gain: .7, type: 'lowpass' });
+    this.noise(t, { dur: .12, freq: 1800, q: .7, gain: .5 });
+    this.tone(t + .02, { f0: big ? 147 : 196, f1: big ? 140 : 188, dur: big ? 1.8 : .9, gain: .25, type: 'sawtooth' });
+    this.tone(t + .02, { f0: big ? 175 : 233, f1: big ? 166 : 226, dur: big ? 1.8 : .9, gain: .2, type: 'sawtooth' });
   },
   magic() {
     if (!this.ok()) return; const t = this.ctx.currentTime;
@@ -213,7 +328,10 @@ const Sfx = {
   win() {
     if (!this.ok()) return; const t = this.ctx.currentTime;
     [392, 523, 659, 784].forEach((f, i) => this.tone(t + i * .12, { f0: f, f1: f, dur: .5, gain: .18, type: 'triangle' }));
-  }
+  },
+  pop() { if (!this.ok()) return; const t = this.ctx.currentTime; this.tone(t, { f0: 620, f1: 900, dur: .09, gain: .22 }); this.tone(t + .07, { f0: 900, f1: 1100, dur: .08, gain: .15 }); },
+  tick() { if (!this.ok()) return; this.noise(this.ctx.currentTime, { dur: .02, freq: 3500, q: 4, gain: .25 }); },
+  nope() { if (!this.ok()) return; const t = this.ctx.currentTime; this.tone(t, { f0: 180, f1: 140, dur: .14, gain: .25, type: 'square' }); }
 };
 
 /* =========================================================
@@ -236,7 +354,6 @@ sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun);
 const coolRim = new THREE.DirectionalLight('#7f9cff', .7); coolRim.position.set(-6, 4, -6); scene.add(coolRim);
 const warm = new THREE.PointLight('#ffae5e', 40, 18, 2); warm.position.set(5, 3.5, -4); scene.add(warm);
 
-// Texturas de piedra procedurales
 function rng(seed) { return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 function stoneTexture({ base, dark, light, veins, veinAlpha = .35, veinCount = 14, seed = 1, size = 512 }) {
   const cv = document.createElement('canvas'); cv.width = cv.height = size; const g = cv.getContext('2d'); const r = rng(seed);
@@ -278,48 +395,124 @@ for (let f = 0; f < 8; f++) for (let r = 0; r < 8; r++) {
   ground.position.y = -.21; ground.receiveShadow = true; scene.add(ground);
 }
 
-// Piezas (torneadas por código)
-const matW = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#ece4d4', dark: '#cfc4b0', light: '#fffaf0', veins: '#9b8e7c', seed: 11 }), roughness: .32, metalness: .02 });
-const matB = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#2c2d37', dark: '#1a1b22', light: '#474a5a', veins: '#8a90a6', veinAlpha: .5, seed: 13 }), roughness: .28, metalness: .1 });
-const lathe = pts => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), 28);
-const baseP = R => [[0, 0], [R, 0], [R, .06], [R * .9, .09], [R * .82, .13]];
-const GEO = {
-  pawn: lathe([...baseP(.3), [.22, .15], [.14, .3], [.11, .42], [.2, .45], [.2, .49], [.1, .51], [0, .52]]),
-  rook: lathe([...baseP(.34), [.25, .17], [.21, .52], [.27, .6], [.27, .78], [.2, .78], [.2, .7], [0, .7]]),
-  bishop: lathe([...baseP(.32), [.21, .16], [.12, .5], [.21, .55], [.21, .58], [.1, .61], [.16, .72], [.18, .82], [.12, .94], [.04, 1.0], [0, 1.01]]),
-  queen: lathe([...baseP(.36), [.23, .17], [.13, .62], [.25, .67], [.25, .7], [.13, .74], [.2, .96], [.25, 1.06], [.2, 1.07], [.12, 1.1], [0, 1.12]]),
-  king: lathe([...baseP(.36), [.24, .17], [.14, .66], [.26, .71], [.26, .74], [.14, .78], [.21, 1.0], [.24, 1.08], [.15, 1.11], [0, 1.12]]),
-  knightBase: lathe([[0, 0], [.33, 0], [.33, .06], [.3, .09], [.27, .13], [.25, .2], [0, .2]]),
-  ball15: new THREE.SphereGeometry(.15, 20, 14), ball07: new THREE.SphereGeometry(.07, 14, 10),
-  ball055: new THREE.SphereGeometry(.055, 12, 8), ball045: new THREE.SphereGeometry(.045, 10, 8),
-  merlon: new THREE.BoxGeometry(.11, .12, .11), crossV: new THREE.BoxGeometry(.08, .3, .08), crossH: new THREE.BoxGeometry(.24, .08, .08),
+/* =========================================================
+   EJÉRCITO DE ESTATUAS (modeladas por código, miran hacia -z)
+   ========================================================= */
+const matW = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#ece4d4', dark: '#cfc4b0', light: '#fffaf0', veins: '#9b8e7c', seed: 11 }), roughness: .38, metalness: .02, side: THREE.DoubleSide });
+const matB = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#2c2d37', dark: '#1a1b22', light: '#474a5a', veins: '#8a90a6', veinAlpha: .5, seed: 13 }), roughness: .32, metalness: .1, side: THREE.DoubleSide });
+
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+const lathe = (pts, seg = 24, ps = 0, pl = Math.PI * 2) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), seg, ps, pl);
+function T(geo, { x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0, s = 1 } = {}) {
+  const g = geo.clone(), sc = typeof s === 'number' ? V(s, s, s) : V(...s);
+  g.applyMatrix4(new THREE.Matrix4().compose(V(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz)), sc)); return g;
+}
+function limb(a, b, r) {
+  const d = b.clone().sub(a), len = d.length(), g = new THREE.CylinderGeometry(r * .85, r, len, 8);
+  g.applyMatrix4(new THREE.Matrix4().compose(a.clone().add(b).multiplyScalar(.5), new THREE.Quaternion().setFromUnitVectors(V(0, 1, 0), d.normalize()), V(1, 1, 1)));
+  return g;
+}
+const sph = (r, x, y, z = 0) => T(new THREE.SphereGeometry(r, 14, 10), { x, y, z });
+const box = (w, h, d, x, y, z = 0, o = {}) => T(new THREE.BoxGeometry(w, h, d), { x, y, z, ...o });
+const cyl = (rt, rb, h, x, y, z = 0, seg = 16, o = {}) => T(new THREE.CylinderGeometry(rt, rb, h, seg), { x, y, z, ...o });
+const cone = (r, h, x, y, z = 0, o = {}) => T(new THREE.ConeGeometry(r, h, 8), { x, y, z, ...o });
+const base = (R, h = .1) => lathe([[0, 0], [R, 0], [R, .05], [R * .93, .08], [R * .86, h], [0, h]], 28);
+function merge(parts) {
+  return mergeGeometries(parts.map(g => {
+    const n = g.index ? g.toNonIndexed() : g, o = new THREE.BufferGeometry();
+    ['position', 'normal', 'uv'].forEach(k => o.setAttribute(k, n.getAttribute(k))); return o;
+  }));
+}
+
+const PIECE_GEO = {
+  // Campesino con sombrero y horquilla
+  p: merge([
+    base(.27, .08),
+    lathe([[0, .08], [.19, .08], [.18, .14], [.14, .32], [.11, .44], [.14, .49], [.09, .54], [0, .55]]),
+    cyl(.14, .145, .03, 0, .33),
+    sph(.085, 0, .63),
+    cyl(.17, .17, .02, 0, .685, 0, 20), cyl(.06, .09, .07, 0, .73),
+    limb(V(.17, .06, -.05), V(.17, .84, -.05), .016),
+    box(.11, .016, .016, .17, .8, -.05),
+    box(.012, .09, .012, .13, .85, -.05), box(.012, .09, .012, .17, .85, -.05), box(.012, .09, .012, .21, .85, -.05),
+    limb(V(.12, .48, 0), V(.165, .4, -.05), .032), sph(.03, .165, .4, -.05),
+    limb(V(-.12, .48, 0), V(-.1, .3, -.07), .031),
+  ]),
+  // Monje-obispo con mitra y báculo
+  b: merge([
+    base(.3, .1),
+    lathe([[0, .1], [.24, .1], [.22, .18], [.17, .42], [.13, .62], [.16, .68], [.1, .74], [0, .75]]),
+    sph(.09, 0, .83),
+    cyl(.088, .088, .025, 0, .89),
+    lathe([[0, .88], [.085, .88], [.1, .93], [.095, 1.0], [.06, 1.08], [.02, 1.13], [0, 1.14]], 16),
+    limb(V(.21, .1, -.05), V(.21, 1.04, -.05), .016),
+    T(new THREE.TorusGeometry(.05, .014, 6, 14, Math.PI * 1.3), { x: .26, y: 1.04, z: -.05, ry: Math.PI }),
+    limb(V(.12, .66, 0), V(.2, .55, -.05), .03), sph(.028, .2, .55, -.05),
+    limb(V(-.12, .66, 0), V(-.05, .5, -.13), .03),
+  ]),
+  // Torre-fortaleza con almenas y portón
+  r: merge([
+    base(.33, .1),
+    lathe([[0, .1], [.26, .1], [.25, .15], [.22, .55], [.24, .62], [.28, .66], [.28, .82], [.21, .82], [.21, .75], [0, .75]]),
+    ...Array.from({ length: 6 }, (_, i) => { const a = i * Math.PI / 3; return box(.1, .12, .09, Math.cos(a) * .245, .88, Math.sin(a) * .245, { ry: -a }); }),
+    T(new THREE.TorusGeometry(.07, .02, 6, 12, Math.PI), { y: .22, z: -.235 }),
+    box(.02, .12, .03, -.07, .16, -.235), box(.02, .12, .03, .07, .16, -.235),
+    box(.04, .08, .03, 0, .48, -.225),
+  ]),
+  // Reina con vestido, capa y corona
+  q: merge([
+    base(.34, .1),
+    lathe([[0, .1], [.29, .1], [.27, .18], [.2, .4], [.13, .62], [.11, .72], [.13, .8], [.16, .86], [.1, .9], [0, .91]]),
+    lathe([[.29, .13], [.25, .3], [.2, .55], [.17, .75], [.175, .87]], 16, -1.25, 2.5),
+    sph(.09, 0, 1.0),
+    cyl(.085, .08, .045, 0, 1.08),
+    ...Array.from({ length: 7 }, (_, i) => { const a = i * Math.PI * 2 / 7; return cone(.02, .07, Math.cos(a) * .078, 1.135, Math.sin(a) * .078); }),
+    sph(.03, 0, 1.17),
+    limb(V(.14, .84, 0), V(.05, .64, -.14), .032), limb(V(-.14, .84, 0), V(-.05, .64, -.14), .032),
+    sph(.045, 0, .64, -.16),
+  ]),
+  // Rey con capa, corona con cruz y espada clavada
+  k: merge([
+    base(.36, .1),
+    lathe([[0, .1], [.31, .1], [.29, .2], [.22, .45], [.17, .7], [.19, .86], [.22, .93], [.1, .98], [0, .99]]),
+    lathe([[.31, .13], [.26, .4], [.21, .7], [.23, .9], [.21, .96]], 16, -1.3, 2.6),
+    sph(.1, 0, 1.08),
+    cone(.06, .1, 0, 1.0, -.07, { rx: Math.PI }),
+    cyl(.1, .095, .08, 0, 1.18, 0, 12),
+    ...Array.from({ length: 4 }, (_, i) => { const a = i * Math.PI / 2 + Math.PI / 4; return box(.035, .05, .035, Math.cos(a) * .09, 1.24, Math.sin(a) * .09); }),
+    box(.035, .17, .035, 0, 1.31), box(.11, .035, .035, 0, 1.33),
+    box(.035, .5, .012, 0, .42, -.25), box(.15, .025, .035, 0, .68, -.25), box(.03, .09, .03, 0, .735, -.25), sph(.025, 0, .79, -.25),
+    limb(V(.17, .9, 0), V(.025, .74, -.24), .034), limb(V(-.17, .9, 0), V(-.025, .74, -.24), .034),
+  ]),
 };
-{
+{ // Caballo
   const s = new THREE.Shape();
   s.moveTo(-.22, .18); s.lineTo(.2, .18); s.quadraticCurveTo(.12, .36, .14, .46); s.lineTo(.32, .56);
   s.quadraticCurveTo(.39, .64, .3, .71); s.lineTo(.1, .77); s.quadraticCurveTo(.06, .86, .02, .92); s.lineTo(-.02, 1.0);
   s.lineTo(-.08, .92); s.quadraticCurveTo(-.22, .86, -.25, .66); s.quadraticCurveTo(-.27, .4, -.22, .18);
-  GEO.head = new THREE.ExtrudeGeometry(s, { depth: .2, bevelEnabled: true, bevelThickness: .04, bevelSize: .035, bevelSegments: 2, curveSegments: 8 });
-  GEO.head.translate(0, 0, -.1); GEO.head.computeVertexNormals();
+  const head = new THREE.ExtrudeGeometry(s, { depth: .2, bevelEnabled: true, bevelThickness: .04, bevelSize: .035, bevelSegments: 2, curveSegments: 8 });
+  head.translate(0, 0, -.1); head.rotateY(Math.PI / 2); head.computeVertexNormals();
+  PIECE_GEO.n = merge([
+    base(.32, .12), lathe([[0, .12], [.24, .12], [.22, .2], [0, .2]]), head,
+    cone(.032, .09, .065, 1.0, .06), cone(.032, .09, -.065, 1.0, .06),
+    sph(.026, .13, .82, -.02), sph(.026, -.13, .82, -.02),
+    limb(V(0, .5, .26), V(0, .93, .07), .04),
+  ]);
 }
-const HEIGHT = { p: .79, r: .9, b: 1.1, q: 1.26, k: 1.42, n: 1.0 };
+const HEIGHT = { p: .9, b: 1.15, r: .95, n: 1.03, q: 1.2, k: 1.42 };
+const PIECE_SCALE = 1.12;
+const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
 const piecesGroup = new THREE.Group(); scene.add(piecesGroup);
 
 function buildPiece(type, color) {
-  const mat = color === 'w' ? matW : matB, g = new THREE.Group();
-  const add = (geo, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
-  if (type === 'p') { add(GEO.pawn); add(GEO.ball15, 0, .64); }
-  if (type === 'r') { add(GEO.rook); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; add(GEO.merlon, Math.cos(a) * .235, .84, Math.sin(a) * .235).rotation.y = -a; } }
-  if (type === 'b') { add(GEO.bishop); add(GEO.ball055, 0, 1.05); }
-  if (type === 'q') { add(GEO.queen); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; add(GEO.ball045, Math.cos(a) * .22, 1.08, Math.sin(a) * .22); } add(GEO.ball07, 0, 1.19); }
-  if (type === 'k') { add(GEO.king); add(GEO.crossV, 0, 1.27); add(GEO.crossH, 0, 1.3); }
-  if (type === 'n') { add(GEO.knightBase); add(GEO.head).rotation.y = color === 'w' ? Math.PI / 2 : -Math.PI / 2; }
-  g.userData = { type, color, h: HEIGHT[type] };
+  const g = new THREE.Group(), m = new THREE.Mesh(PIECE_GEO[type], color === 'w' ? matW : matB);
+  m.castShadow = m.receiveShadow = true; m.rotation.y = color === 'w' ? 0 : Math.PI; m.scale.setScalar(PIECE_SCALE); g.add(m);
+  g.userData = { type, color, h: HEIGHT[type] * PIECE_SCALE };
   return g;
 }
 
 // Marcas en el tablero
-const marks = new THREE.Group(); scene.add(marks);
 const flatMat = (c, o, add) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending });
 const dotGeo = new THREE.CircleGeometry(.15, 24).rotateX(-Math.PI / 2);
 const ringGeo = new THREE.RingGeometry(.36, .47, 40).rotateX(-Math.PI / 2);
@@ -332,18 +525,16 @@ const checkMark = new THREE.Mesh(new THREE.CircleGeometry(.5, 32).rotateX(-Math.
 [...lastMarks, selMark, checkMark].forEach((m, i) => { m.visible = false; m.position.y = BOARD_Y + .002 + i * .0005; scene.add(m); });
 const targetMarks = [];
 
-// Polvo mágico flotando
 const motes = (() => {
   const N = 90, pos = new Float32Array(N * 3), sp = [];
   for (let i = 0; i < N; i++) { pos[i * 3] = (rnd() - .5) * 11; pos[i * 3 + 1] = rnd() * 4; pos[i * 3 + 2] = (rnd() - .5) * 11; sp.push(.05 + rnd() * .15); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffd89a', size: .05, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
-  scene.add(p);
+  scene.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffd89a', size: .05, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending })));
   return dt => { for (let i = 0; i < N; i++) { pos[i * 3 + 1] += sp[i] * dt; if (pos[i * 3 + 1] > 4) pos[i * 3 + 1] = 0; } geo.attributes.position.needsUpdate = true; };
 })();
 
 /* =========================================================
-   ANIMACIONES Y EFECTO DE ROTURA
+   ANIMACIONES Y FÍSICA DE ROTURA
    ========================================================= */
 const tweens = [], effects = [];
 let shake = 0;
@@ -355,26 +546,25 @@ function tween(dur, fn, ease = easeIO) {
 const wait = s => tween(s, () => {});
 
 const shardGeos = [new THREE.TetrahedronGeometry(1), new THREE.OctahedronGeometry(1), new THREE.IcosahedronGeometry(1, 0), new THREE.DodecahedronGeometry(1, 0)];
-function shatter(group, away) {
-  const pos = group.position.clone(), h = group.userData.h, color = group.userData.color;
+function shatter(group, away, power = 1) {
+  const pos = group.position.clone(), h = group.userData.h, color = group.userData.color, q = group.quaternion.clone();
   piecesGroup.remove(group);
   const mat = (color === 'w' ? matW : matB).clone(); mat.transparent = true;
-  const shards = [];
-  for (let i = 0; i < 56; i++) {
+  const shards = [], N = Math.round(56 * power);
+  for (let i = 0; i < N; i++) {
     const m = new THREE.Mesh(shardGeos[i % 4], mat), s = .045 + rnd() * .1;
     m.scale.set(s * (.6 + rnd() * .8), s * (.6 + rnd() * .8), s * (.6 + rnd() * .8));
     const y = .03 + rnd() * h * .95, rr = rnd() * (.27 - .1 * y / h), a = rnd() * 6.283;
-    m.position.set(pos.x + Math.cos(a) * rr, pos.y + y, pos.z + Math.sin(a) * rr);
+    m.position.copy(pos).add(V(Math.cos(a) * rr, y, Math.sin(a) * rr).applyQuaternion(q));
     m.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6); m.castShadow = true; scene.add(m);
-    const v = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(.7 + rnd() * 2.3).addScaledVector(away, 1 + rnd() * 1.8);
-    v.y = 1.4 + rnd() * 3.6 * (.4 + y / h);
-    shards.push({ m, v, w: new THREE.Vector3(rnd() - .5, rnd() - .5, rnd() - .5).multiplyScalar(16), r: s, rest: false });
+    const v = V(Math.cos(a), 0, Math.sin(a)).multiplyScalar((.7 + rnd() * 2.3) * power).addScaledVector(away, 1 + rnd() * 1.8);
+    v.y = (1.4 + rnd() * 3.6 * (.4 + y / h)) * Math.sqrt(power);
+    shards.push({ m, v, w: V(rnd() - .5, rnd() - .5, rnd() - .5).multiplyScalar(16), r: s, rest: false });
   }
-  // polvo
   const DN = 70, dp = new Float32Array(DN * 3), dv = [];
   for (let i = 0; i < DN; i++) {
     const a = rnd() * 6.283, rr = rnd() * .3; dp[i * 3] = pos.x + Math.cos(a) * rr; dp[i * 3 + 1] = pos.y + rnd() * h; dp[i * 3 + 2] = pos.z + Math.sin(a) * rr;
-    dv.push(new THREE.Vector3(Math.cos(a) * (.3 + rnd() * .9), .2 + rnd() * .8, Math.sin(a) * (.3 + rnd() * .9)));
+    dv.push(V(Math.cos(a) * (.3 + rnd() * .9), .2 + rnd() * .8, Math.sin(a) * (.3 + rnd() * .9)));
   }
   const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
   const dMat = new THREE.PointsMaterial({ color: color === 'w' ? '#e3d8c6' : '#7b7886', size: .11, transparent: true, opacity: .8, depthWrite: false });
@@ -392,25 +582,22 @@ function shatter(group, away) {
       if (p.y < floor) {
         p.y = floor; const vy = Math.abs(s.v.y); if (vy > 1.3) Sfx.pebble(vy);
         s.v.y = vy * .32; s.v.x *= .55; s.v.z *= .55; s.w.multiplyScalar(.6);
-        if (vy < .5) { s.rest = true; }
+        if (vy < .5) s.rest = true;
       }
     }
     for (let i = 0; i < DN; i++) { dp[i * 3] += dv[i].x * dt; dp[i * 3 + 1] += dv[i].y * dt; dp[i * 3 + 2] += dv[i].z * dt; dv[i].multiplyScalar(1 - 1.5 * dt); }
     dGeo.attributes.position.needsUpdate = true; dMat.opacity = .8 * Math.max(0, 1 - t / 1.3); dMat.size = .11 + t * .1;
     flash.intensity = 30 * Math.max(0, 1 - t / .35);
-    if (t > 1.9) { const k = Math.max(0, 1 - (t - 1.9) / .9); mat.opacity = k; for (const s of shards) s.m.position.y -= dt * .04; }
-    if (t > 2.85) {
-      shards.forEach(s => scene.remove(s.m)); scene.remove(dust); scene.remove(flash);
-      mat.dispose(); dGeo.dispose(); dMat.dispose(); return true;
-    }
+    if (t > 1.9) { mat.opacity = Math.max(0, 1 - (t - 1.9) / .9); for (const s of shards) s.m.position.y -= dt * .04; }
+    if (t > 2.85) { shards.forEach(s => scene.remove(s.m)); scene.remove(dust); scene.remove(flash); mat.dispose(); dGeo.dispose(); dMat.dispose(); return true; }
     return false;
   });
-  Sfx.shatter(); shake = .28; try { navigator.vibrate && navigator.vibrate(70); } catch (e) {}
+  Sfx.shatter(); shake = .28 * power; try { navigator.vibrate && navigator.vibrate(power > 1 ? [90, 40, 120] : 70); } catch (e) {}
 }
 
 function sparkle(pos) {
   const N = 40, p = new Float32Array(N * 3), v = [];
-  for (let i = 0; i < N; i++) { p[i * 3] = pos.x; p[i * 3 + 1] = pos.y + .5; p[i * 3 + 2] = pos.z; v.push(new THREE.Vector3(rnd() - .5, rnd() * .8 + .2, rnd() - .5).multiplyScalar(2.2)); }
+  for (let i = 0; i < N; i++) { p[i * 3] = pos.x; p[i * 3 + 1] = pos.y + .5; p[i * 3 + 2] = pos.z; v.push(V(rnd() - .5, rnd() * .8 + .2, rnd() - .5).multiplyScalar(2.2)); }
   const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
   const mat = new THREE.PointsMaterial({ color: '#ffe3a0', size: .09, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
   const pts = new THREE.Points(geo, mat); scene.add(pts); let t = 0;
@@ -422,52 +609,135 @@ function sparkle(pos) {
    ESTADO DEL JUEGO
    ========================================================= */
 let chess = new Chess();
-let pieceAt = {};               // casilla -> Group 3D
-let mode = null;                // 'local' | 'host' | 'guest'
+let pieceAt = {};
+let mode = null;                 // 'local' | 'host' | 'guest'
 let hostColor = 'w', myColor = 'w', viewFlip = false;
+let viewMode = localStorage.getItem('jp-view') || '3d';
 let room = null, peer = null, conn = null, connected = false;
 let busy = false, selected = null, queue = Promise.resolve(), endShown = false;
+let clock = { cfg: 0, w: 0, b: 0 }, turnStart = null, timeoutLoser = null;
+let chatLog = [], unread = 0, pendingChat = [];
 const enqueue = fn => (queue = queue.then(fn).catch(e => console.error(e)));
 const enc = m => m.from + m.to + (m.promotion || '');
 const dec = s => ({ from: s.slice(0, 2), to: s.slice(2, 4), promotion: s[4] || undefined });
 const movesList = () => chess.history({ verbose: true }).map(enc);
 const storeKey = () => room ? 'jp-room-' + room : 'jp-local';
-function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host' })); } catch (e) {} }
+const gameOver = () => chess.isGameOver() || !!timeoutLoser;
+function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host', clk: liveClock(), tl: timeoutLoser })); } catch (e) {} }
 function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
 
 function spawn(type, color, sq) {
   const g = buildPiece(type, color); g.position.copy(sqPos(sq)); g.userData.sq = sq; piecesGroup.add(g); pieceAt[sq] = g; return g;
 }
-function rebuild(moves) {
+function rebuild(moves, st = {}) {
   chess = new Chess();
   for (const s of moves) { try { chess.move(dec(s)); } catch (e) { console.warn('jugada inválida en historial', s); break; } }
   piecesGroup.clear(); pieceAt = {};
   for (const row of chess.board()) for (const c of row) if (c) spawn(c.type, c.color, c.square);
+  if (st.clk) clock = { cfg: st.clk.cfg || 0, w: st.clk.w, b: st.clk.b };
+  timeoutLoser = st.tl || null; turnStart = null;
   clearSelection(); endShown = false; $('ovEnd').hidden = true;
-  updateMarks(); updateStatus(); save();
-  if (chess.isGameOver()) showEnd(true);
+  updateMarks(); updateStatus(); updateRows(); save();
+  if (gameOver()) showEnd(true);
+}
+function canMove() { return !busy && !gameOver() && (mode === 'local' || chess.turn() === myColor); }
+
+/* ---------- reloj ---------- */
+function clockActive() { return clock.cfg > 0 && chess.history().length > 0 && !gameOver() && (mode === 'local' || connected); }
+function remaining(c) { let v = clock[c]; if (turnStart != null && c === chess.turn()) v -= now() - turnStart; return Math.max(0, v); }
+function liveClock() { return { cfg: clock.cfg, w: remaining('w'), b: remaining('b') }; }
+function commitClock() {
+  const t = chess.turn();
+  if (turnStart != null) clock[t] = Math.max(0, clock[t] - (now() - turnStart));
+  turnStart = clockActive() ? now() : null;
+}
+function setClock(cfg, fromRemote, clk) {
+  clock = clk ? { cfg: clk.cfg, w: clk.w, b: clk.b } : { cfg, w: cfg * 60000, b: cfg * 60000 };
+  turnStart = null; save(); updateRows();
+  if (!fromRemote && mode !== 'local') send({ t: 'clock', clk: liveClock() });
+  toast(clock.cfg ? `⏱ Reloj: ${clock.cfg} min por jugador` : 'Reloj desactivado');
+}
+function onTimeout(loser, fromRemote) {
+  if (timeoutLoser) return;
+  clock[loser] = 0; timeoutLoser = loser; turnStart = null; clearSelection(); save(); updateStatus(); updateRows();
+  if (!fromRemote) send({ t: 'flag', loser });
+  enqueue(async () => { shout('time'); await wait(1.6); showEnd(false); });
+}
+const fmt = ms => { if (ms < 10000) return (ms / 1000).toFixed(1); const s = Math.ceil(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+
+/* ---------- tanteador ---------- */
+function rowColors() { const v = viewColor(); return { bot: v, top: opp(v) }; }
+function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Blancas' : 'Negras'; return c === myColor ? 'Vos' : 'Tu amigo'; }
+function updateRows() {
+  const show = !!mode; $('rowTop').hidden = $('rowBot').hidden = !show; if (!show) return;
+  const caps = { w: [], b: [] };
+  for (const m of chess.history({ verbose: true })) if (m.captured) caps[m.color].push(m.captured);
+  const mat = { w: 0, b: 0 };
+  for (const row of chess.board()) for (const c of row) if (c) mat[c.color] += VALUE[c.type];
+  const order = 'qrbnp';
+  const { bot, top } = rowColors();
+  for (const [id, c] of [['rowTop', top], ['rowBot', bot]]) {
+    const el = $(id);
+    el.querySelector('.pdot').style.background = c === 'w' ? '#efe7d8' : '#2c2d37';
+    el.querySelector('.pname').textContent = playerName(c);
+    const list = caps[c].slice().sort((a, b) => order.indexOf(a) - order.indexOf(b));
+    el.querySelector('.caps').innerHTML = list.map(t => `<span class="${c === 'w' ? 'cb' : 'cw'}">${GLYPH[t]}︎</span>`).join('');
+    const d = mat[c] - mat[opp(c)]; el.querySelector('.adv').textContent = d > 0 ? '+' + d : '';
+    el.querySelector('.clock').hidden = !clock.cfg;
+  }
+  renderClocks(true);
+}
+let lastClockRender = 0, lastTickSec = -1;
+function renderClocks(force) {
+  if (!clock.cfg || !mode) return;
+  const t = now(); if (!force && t - lastClockRender < 100) return; lastClockRender = t;
+  const { bot, top } = rowColors(), turn = chess.turn();
+  for (const [id, c] of [['rowTop', top], ['rowBot', bot]]) {
+    const el = $(id).querySelector('.clock'), ms = remaining(c);
+    el.textContent = fmt(ms);
+    const running = turnStart != null && c === turn;
+    el.classList.toggle('on', running && ms >= 20000);
+    el.classList.toggle('low', running && ms < 20000);
+  }
+  const mineRunning = turnStart != null && (mode === 'local' || turn === myColor);
+  if (mineRunning) { const ms = remaining(turn), s = Math.ceil(ms / 1000); if (ms < 10000 && s !== lastTickSec) { lastTickSec = s; Sfx.tick(); } }
 }
 
-function canMove() { return !busy && !chess.isGameOver() && (mode === 'local' || chess.turn() === myColor); }
-
-/* ---------- selección ---------- */
+/* ---------- selección y jugadas ---------- */
 function clearSelection() { selected = null; selMark.visible = false; targetMarks.forEach(m => m.visible = false); }
+function pseudoTargets(sq) {
+  try { const c = new Chess(chess.fen()), k = kingSquare(chess.turn()); if (k && k !== sq) c.remove(k); return c.moves({ square: sq, verbose: true }).map(m => m.to); } catch (e) { return []; }
+}
 function select(sq) {
   clearSelection(); selected = sq;
   selMark.position.set(sqPos(sq).x, selMark.position.y, sqPos(sq).z); selMark.visible = true;
+  const moves = chess.moves({ square: sq, verbose: true });
   const seen = new Set(); let i = 0;
-  for (const m of chess.moves({ square: sq, verbose: true })) {
+  for (const m of moves) {
     if (seen.has(m.to)) continue; seen.add(m.to);
     const cap = m.flags.includes('c') || m.flags.includes('e');
     let mk = targetMarks[i]; if (!mk) { mk = new THREE.Mesh(dotGeo, dotMat); mk.position.y = BOARD_Y + .004; scene.add(mk); targetMarks.push(mk); }
     mk.geometry = cap ? ringGeo : dotGeo; mk.material = cap ? ringMat : dotMat; mk.userData.cap = cap;
     const p = sqPos(m.to); mk.position.x = p.x; mk.position.z = p.z; mk.visible = true; i++;
   }
+  if (!moves.length) {
+    const pinned = chess.get(sq).type !== 'k' && pseudoTargets(sq).length > 0;
+    toast(chess.inCheck() ? 'Estás en jaque: mové algo que salve a tu rey' : pinned ? 'Esa pieza está clavada: si se mueve, tu rey queda en jaque' : 'Esa pieza no tiene movimientos ahora');
+  }
   Sfx.place();
 }
+function explainIllegal(from, to) {
+  const p = chess.get(from), target = chess.get(to);
+  if (p.type === 'k') return chess.inCheck() ? 'Estás en jaque: esa casilla no salva a tu rey' : 'Tu rey no puede ir ahí (casilla atacada o fuera de alcance)';
+  if (pseudoTargets(from).includes(to)) return chess.inCheck() ? 'Estás en jaque: esa jugada no salva a tu rey' : 'No se puede: tu rey quedaría en jaque';
+  if (p.type === 'p' && from[0] === to[0] && target) return 'El campesino no puede comer de frente: come en diagonal';
+  if (chess.inCheck()) return 'Estás en jaque: primero salvá a tu rey';
+  return 'Esa pieza no puede ir ahí';
+}
 async function onTap(sq) {
-  if (!sq || !canMove()) {
-    if (sq && mode !== 'local' && !busy && !chess.isGameOver() && chess.turn() !== myColor) toast('Es el turno de tu amigo');
+  if (!sq) return;
+  if (!canMove()) {
+    if (mode !== 'local' && !busy && !gameOver() && chess.turn() !== myColor) toast('Es el turno de tu amigo');
     return;
   }
   const p = chess.get(sq);
@@ -475,42 +745,45 @@ async function onTap(sq) {
     const cands = chess.moves({ square: selected, verbose: true }).filter(m => m.to === sq);
     if (cands.length) {
       let promotion;
-      if (cands.some(m => m.promotion)) { promotion = await askPromotion(cands[0].color); if (!promotion) return; }
+      if (cands.some(m => m.promotion)) { promotion = await askPromotion(cands[0].color); if (!promotion) { toast('Jugada cancelada'); return; } }
       const from = selected; clearSelection();
       enqueue(() => applyMove({ from, to: sq, promotion }, false));
       return;
     }
+    if (!(p && p.color === chess.turn())) { toast(explainIllegal(selected, sq)); Sfx.nope(); clearSelection(); return; }
   }
   if (p && p.color === chess.turn() && sq !== selected) select(sq); else clearSelection();
 }
-
 function askPromotion(color) {
   return new Promise(res => {
     const box = $('promoBtns'); box.innerHTML = '';
-    const sym = color === 'w' ? { q: '♕', r: '♖', b: '♗', n: '♘' } : { q: '♛', r: '♜', b: '♝', n: '♞' };
+    const names = { q: 'Reina', r: 'Torre', b: 'Monje', n: 'Caballo' };
     for (const t of ['q', 'r', 'b', 'n']) {
-      const b = document.createElement('button'); b.textContent = sym[t];
+      const b = document.createElement('button');
+      b.innerHTML = `<div><span style="color:${color === 'w' ? '#f3ead8' : '#9aa0b8'}">${GLYPH[t]}︎</span><small>${names[t]}</small></div>`;
       b.onclick = () => { $('ovPromo').hidden = true; res(t); }; box.appendChild(b);
     }
-    $('ovPromo').onclick = e => { if (e.target.id === 'ovPromo') { $('ovPromo').hidden = true; res(null); } };
+    $('promoCancel').onclick = () => { $('ovPromo').hidden = true; res(null); };
     $('ovPromo').hidden = false;
   });
 }
 
-/* ---------- aplicar y animar jugadas ---------- */
-async function applyMove(mv, remote) {
+async function applyMove(mv, remote, clk) {
+  if (gameOver()) return;
+  if (!remote) commitClock();
   let m;
   try { m = chess.move(mv); } catch (e) { console.warn('ilegal', mv); if (remote) send({ t: 'need' }); return; }
+  if (remote && clk) clock = { cfg: clk.cfg, w: clk.w, b: clk.b };
+  turnStart = clockActive() ? now() : null;
   clearSelection(); busy = true; save();
-  if (!remote && mode !== 'local') send({ t: 'move', m: enc(m), n: chess.history().length });
-  updateStatus();
+  if (!remote && mode !== 'local') send({ t: 'move', m: enc(m), n: chess.history().length, clk: liveClock() });
+  updateStatus(); updateRows();
   await animateMove(m);
-  busy = false; afterMove();
+  busy = false;
+  await afterMove(m);
 }
 
-function slidePiece(mesh, a, b, dur, lift) {
-  return tween(dur, e => { mesh.position.lerpVectors(a, b, e); mesh.position.y = BOARD_Y + Math.sin(Math.PI * e) * lift; });
-}
+function slidePiece(mesh, a, b, dur, lift) { return tween(dur, e => { mesh.position.lerpVectors(a, b, e); mesh.position.y = BOARD_Y + Math.sin(Math.PI * e) * lift; }); }
 
 async function animateMove(m) {
   const mesh = pieceAt[m.from]; delete pieceAt[m.from];
@@ -529,7 +802,7 @@ async function animateMove(m) {
   Sfx.slide(dur);
   let hit = false; const away = b.clone().sub(sqPos(m.from)).setY(0).normalize();
   const vPos = victim ? victim.position.clone() : null;
-  if (victim) tween(.18, e => { victim.rotation.z = Math.sin(e * 30) * .05; }, x => x); // la víctima tiembla
+  if (victim) tween(.18, e => { victim.rotation.z = Math.sin(e * 30) * .05; }, x => x);
   await Promise.all([tween(dur, e => {
     mesh.position.lerpVectors(a, b, e);
     mesh.position.y = (a.y + (BOARD_Y - a.y) * e) + Math.sin(Math.PI * e) * lift;
@@ -547,37 +820,82 @@ async function animateMove(m) {
   }
 }
 
-function afterMove() {
-  updateMarks(); updateStatus();
-  if (chess.isGameOver()) { setTimeout(() => showEnd(false), 1300); return; }
-  if (chess.inCheck()) { Sfx.check(); toast('¡Jaque!'); }
+async function afterMove(m) {
+  updateMarks(); updateStatus(); updateRows();
+  if (chess.isCheckmate()) {
+    busy = true;
+    const loser = chess.turn(), ks = kingSquare(loser), king = pieceAt[ks];
+    shout('mate');
+    await wait(.7);
+    if (king) {
+      delete pieceAt[ks];
+      const d = sqPos(ks).sub(sqPos(m.to)).setY(0); if (d.lengthSq() < .01) d.set(0, 0, 1); d.normalize();
+      const axis = V(d.z, 0, -d.x), base0 = king.position.clone();
+      await tween(.75, e => {
+        const ang = e * 1.35; king.quaternion.setFromAxisAngle(axis, ang);
+        king.position.copy(base0).addScaledVector(d, .3 * (1 - Math.cos(ang))).setY(BOARD_Y + .3 * Math.sin(ang));
+      }, p => p * p);
+      shatter(king, d, 1.6);
+    }
+    await wait(1.7); busy = false; showEnd(false); return;
+  }
+  if (gameOver()) { await wait(1.2); showEnd(false); return; }
+  if (chess.inCheck()) shout('check');
 }
 
 function kingSquare(color) { for (const row of chess.board()) for (const c of row) if (c && c.type === 'k' && c.color === color) return c.square; }
 function updateMarks() {
   const h = chess.history({ verbose: true }), last = h[h.length - 1];
   lastMarks.forEach((mk, i) => { if (!last) { mk.visible = false; return; } const p = sqPos(i ? last.to : last.from); mk.position.x = p.x; mk.position.z = p.z; mk.visible = true; });
-  if (chess.inCheck()) { const p = sqPos(kingSquare(chess.turn())); checkMark.position.x = p.x; checkMark.position.z = p.z; checkMark.visible = true; } else checkMark.visible = false;
+  const ks = chess.inCheck() && kingSquare(chess.turn());
+  if (ks) { const p = sqPos(ks); checkMark.position.x = p.x; checkMark.position.z = p.z; checkMark.visible = true; } else checkMark.visible = false;
 }
-
 function updateStatus() {
   const t = chess.turn(); let txt;
-  if (chess.isCheckmate()) txt = 'Jaque mate';
+  if (timeoutLoser) txt = 'Se acabó el tiempo';
+  else if (chess.isCheckmate()) txt = 'Jaque mate';
   else if (chess.isGameOver()) txt = 'Tablas';
-  else if (mode === 'local') txt = t === 'w' ? 'Juegan las blancas' : 'Juegan las negras';
+  else if (mode === 'local') txt = t === 'w' ? 'Turno blancas' : 'Turno negras';
   else txt = t === myColor ? 'Tu turno' : 'Turno de tu amigo';
-  if (!chess.isGameOver() && chess.inCheck()) txt += ' · ¡Jaque!';
+  if (!gameOver() && chess.inCheck()) txt += ' · ¡Jaque!';
   $('statusText').textContent = txt;
   $('turnDot').style.background = t === 'w' ? '#efe7d8' : '#2c2d37';
+}
+
+/* ---------- el GRITO ---------- */
+let shoutT;
+function shout(kind) {
+  const el = $('shout'); el.className = ''; void el.offsetWidth;
+  let txt, sub = '';
+  if (kind === 'check') {
+    txt = '¡JAQUE!';
+    sub = mode === 'local' ? (chess.turn() === 'w' ? 'Rey blanco en peligro' : 'Rey negro en peligro') : chess.turn() === myColor ? '¡Cuidá a tu rey!' : '¡Le diste jaque!';
+  } else if (kind === 'mate') {
+    txt = 'JAQUE<br>MATE';
+    const w = opp(chess.turn()); sub = mode === 'local' ? (w === 'w' ? 'Ganan las blancas' : 'Ganan las negras') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
+  } else {
+    txt = '¡TIEMPO!';
+    sub = mode === 'local' ? `Se les acabó a las ${timeoutLoser === 'w' ? 'blancas' : 'negras'}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : '¡A tu amigo se le acabó el reloj!';
+  }
+  el.innerHTML = `<div class="vig"></div><div class="inner"><div class="txt">${txt}</div><div class="sub">${sub}</div></div>`;
+  el.className = 'show ' + kind;
+  Sfx.boom(kind === 'mate'); shake = kind === 'mate' ? .6 : .4;
+  try { navigator.vibrate && navigator.vibrate(kind === 'mate' ? [200, 80, 300] : [120, 60, 120]); } catch (e) {}
+  clearTimeout(shoutT); shoutT = setTimeout(() => el.className = '', kind === 'mate' ? 2850 : 1450);
 }
 
 function showEnd(silent) {
   if (endShown) return; endShown = true;
   let icon = '♚', title = 'Tablas', text = '';
-  if (chess.isCheckmate()) {
+  if (timeoutLoser) {
+    const w = opp(timeoutLoser); icon = '⏱';
+    if (mode === 'local') { title = 'Tiempo'; text = `Ganan las ${w === 'w' ? 'blancas' : 'negras'} por tiempo.`; }
+    else if (w === myColor) { title = '¡Ganaste por tiempo!'; text = 'A tu amigo se le acabó el reloj.'; if (!silent) Sfx.win(); }
+    else { title = 'Se te acabó el tiempo'; text = 'Perdiste por reloj. Pedí la revancha.'; }
+  } else if (chess.isCheckmate()) {
     const winner = opp(chess.turn());
     if (mode === 'local') { title = 'Jaque mate'; text = winner === 'w' ? 'Ganan las blancas.' : 'Ganan las negras.'; icon = winner === 'w' ? '♔' : '♚'; }
-    else if (winner === myColor) { title = '¡Ganaste!'; text = 'Jaque mate. Tu amigo quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
+    else if (winner === myColor) { title = '¡Ganaste!'; text = 'Jaque mate. El rey rival quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
     else { title = 'Perdiste'; text = 'Jaque mate. Pedí la revancha.'; icon = '🪨'; }
   } else {
     text = chess.isStalemate() ? 'Rey ahogado: no hay jugadas legales.' : chess.isThreefoldRepetition() ? 'Triple repetición.' :
@@ -586,54 +904,105 @@ function showEnd(silent) {
   $('endIcon').textContent = icon; $('endTitle').textContent = title; $('endText').textContent = text; $('ovEnd').hidden = false;
 }
 
-function newGame(fromRemote, newHostColor) {
+function newGame(fromRemote, d) {
   if (mode !== 'local') {
-    hostColor = newHostColor || opp(hostColor); myColor = mode === 'host' ? hostColor : opp(hostColor);
-    if (!fromRemote) send({ t: 'rematch', hostColor });
+    hostColor = d?.hostColor || opp(hostColor); myColor = mode === 'host' ? hostColor : opp(hostColor);
     toast(`Nueva partida: jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
   }
-  busy = false; rebuild([]); placeCamera();
+  const cfg = d?.clk ? d.clk.cfg : clock.cfg;
+  busy = false; rebuild([], { clk: { cfg, w: cfg * 60000, b: cfg * 60000 } }); placeCamera();
+  if (!fromRemote && mode !== 'local') send({ t: 'rematch', hostColor, clk: liveClock() });
 }
+
+/* =========================================================
+   CHAT
+   ========================================================= */
+const QUICK = ['¡Buena jugada! 👏', 'Uy… 😬', 'Apurate 😴', 'Te voy a romper todo 🪨', 'Jajaja 😂', '¿Revancha?', 'GG 🤝', 'No vale 😤'];
+const EMOS = ['😂', '😱', '😎', '🔥', '😭', '👏', '🤔', '😈', '💀', '🪨', '❤️', '🤡'];
+const isEmojiOnly = s => /^(\p{Extended_Pictographic}(️|‍\p{Extended_Pictographic})*){1,3}$/u.test(s.trim());
+const chatKey = () => 'jp-chat-' + room;
+function saveChat() { try { localStorage.setItem(chatKey(), JSON.stringify(chatLog.slice(-120))); } catch (e) {} }
+function renderMsg(m) {
+  const el = document.createElement('div');
+  el.className = 'msg' + (m.from === mode ? ' me' : '') + (isEmojiOnly(m.text) ? ' emo' : '');
+  el.textContent = m.text; $('msgs').appendChild(el);
+}
+function renderChat() { $('msgs').innerHTML = ''; if (!chatLog.length) { const s = document.createElement('div'); s.className = 'msg sys'; s.textContent = 'Todavía no hay mensajes'; $('msgs').appendChild(s); } chatLog.forEach(renderMsg); scrollChat(); }
+const scrollChat = () => { const m = $('msgs'); m.scrollTop = m.scrollHeight; };
+const chatOpen = () => $('chat').classList.contains('open');
+function bigEmoji(e) { const el = document.createElement('div'); el.className = 'bigemo'; el.textContent = e; el.style.left = (28 + rnd() * 44) + '%'; document.body.appendChild(el); setTimeout(() => el.remove(), 2500); }
+function addChat(m, mine) {
+  if (chatLog.some(x => x.id === m.id)) return;
+  if (!chatLog.length) $('msgs').innerHTML = '';
+  chatLog.push(m); saveChat(); renderMsg(m); scrollChat();
+  if (isEmojiOnly(m.text)) bigEmoji(m.text.trim());
+  if (!mine) {
+    Sfx.pop();
+    if (!chatOpen()) {
+      unread++; $('badge').textContent = unread;
+      if (!isEmojiOnly(m.text)) { const p = $('peek'); p.textContent = '💬 Tu amigo: ' + m.text; p.classList.add('show'); clearTimeout(p._t); p._t = setTimeout(() => p.classList.remove('show'), 3800); }
+    }
+  }
+}
+function sendChat(text) {
+  text = (text || '').trim().slice(0, 300); if (!text) return;
+  const m = { t: 'chat', id: Math.random().toString(36).slice(2, 10), text, ts: Date.now(), from: mode };
+  addChat(m, true);
+  if (conn && conn.open) send(m); else { pendingChat.push(m); toast('Tu amigo no está conectado: le llega cuando vuelva'); }
+}
+function openChat(o) {
+  $('chat').classList.toggle('open', o); $('chat').setAttribute('aria-hidden', !o);
+  if (o) { unread = 0; $('badge').textContent = ''; $('peek').classList.remove('show'); scrollChat(); } else $('chatInput').blur();
+}
+QUICK.forEach(q => { const b = document.createElement('button'); b.type = 'button'; b.textContent = q; b.onclick = () => sendChat(q); $('quick').appendChild(b); });
+EMOS.forEach(e => { const b = document.createElement('button'); b.type = 'button'; b.textContent = e; b.onclick = () => sendChat(e); $('emos').appendChild(b); });
+$('chatForm').onsubmit = e => { e.preventDefault(); sendChat($('chatInput').value); $('chatInput').value = ''; };
+$('btnChat').onclick = () => { Sfx.ensure(); openChat(!chatOpen()); };
+$('chatClose').onclick = () => openChat(false);
+$('peek').onclick = () => openChat(true);
 
 /* =========================================================
    ONLINE (PeerJS, link directo)
    ========================================================= */
 function send(d) { if (conn && conn.open) try { conn.send(d); } catch (e) {} }
-function setConn(txt, ok) { const el = $('conn'); el.hidden = false; el.textContent = txt; el.classList.toggle('ok', !!ok); }
+function setConn(txt, ok) { const el = $('conn'); el.hidden = false; el.textContent = txt; el.classList.toggle('ok', !!ok); if (ok) { clearTimeout(el._t); el._t = setTimeout(() => { if (connected) el.hidden = true; }, 3000); } }
 function peerOpts() {
   const o = { debug: 0 };
   if (params.get('peerhost')) Object.assign(o, { host: params.get('peerhost'), port: +params.get('peerport') || 9000, path: '/', secure: false });
   return o;
 }
 const isPrefix = (a, b) => a.length <= b.length && a.every((x, i) => x === b[i]);
+const syncMsg = () => ({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined, clk: liveClock(), tl: timeoutLoser });
 
 function onData(d) {
   if (!d || !d.t) return;
   if (d.t === 'move') {
     const len = chess.history().length;
-    if (d.n === len + 1) enqueue(() => applyMove(dec(d.m), true));
+    if (d.n === len + 1) enqueue(() => applyMove(dec(d.m), true, d.clk));
     else if (d.n > len + 1) send({ t: 'need' });
   }
-  if (d.t === 'need') send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+  if (d.t === 'need') send(syncMsg());
   if (d.t === 'sync') enqueue(() => handleSync(d));
-  if (d.t === 'rematch') enqueue(() => newGame(true, d.hostColor));
+  if (d.t === 'rematch') enqueue(() => newGame(true, d));
+  if (d.t === 'chat') addChat(d, false);
+  if (d.t === 'clock') setClock(0, true, d.clk);
+  if (d.t === 'flag') onTimeout(d.loser, true);
 }
 
 async function handleSync(d) {
   const local = movesList(), remote = d.moves || [];
-  if (mode === 'guest' && d.hostColor && d.hostColor !== hostColor) {
-    hostColor = d.hostColor; myColor = opp(hostColor); placeCamera(); updateStatus();
-  }
-  if (remote.join() === local.join()) { save(); return; }
+  if (mode === 'guest' && d.hostColor && d.hostColor !== hostColor) { hostColor = d.hostColor; myColor = opp(hostColor); placeCamera(); updateStatus(); updateRows(); }
+  const adoptClock = () => { if (d.clk) { clock = { cfg: d.clk.cfg, w: d.clk.w, b: d.clk.b }; turnStart = null; } if (d.tl && !timeoutLoser) onTimeout(d.tl, true); updateRows(); save(); };
+  if (remote.join() === local.join()) { if (mode === 'guest') adoptClock(); save(); return; }
   const oneAhead = remote.length === local.length + 1 && isPrefix(local, remote);
   if (mode === 'guest') {
-    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true);
-    else if (isPrefix(remote, local)) send({ t: 'sync', moves: local });   // el invitado va adelantado: avisar al anfitrión
-    else rebuild(remote);                                                   // el anfitrión manda
+    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true, d.clk);
+    else if (isPrefix(remote, local)) send(syncMsg());
+    else rebuild(remote, { clk: d.clk, tl: d.tl });
   } else if (mode === 'host') {
-    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true);
-    else if (remote.length > local.length && isPrefix(local, remote)) rebuild(remote);
-    else send({ t: 'sync', moves: local, hostColor });
+    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true, d.clk);
+    else if (remote.length > local.length && isPrefix(local, remote)) rebuild(remote, { clk: d.clk, tl: d.tl });
+    else send(syncMsg());
   }
 }
 
@@ -644,13 +1013,14 @@ function attach(c) {
     if (conn !== c) return;
     connected = true; setConn('Conectado con tu amigo', true); $('ovInvite').hidden = true;
     toast(mode === 'host' ? '¡Tu amigo entró a la partida!' : `Conectado · jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
-    c.send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+    c.send(syncMsg());
+    while (pendingChat.length) c.send(pendingChat.shift());
     updateStatus();
   });
   c.on('data', onData);
   c.on('close', () => {
     if (conn !== c) return; connected = false;
-    setConn(mode === 'host' ? 'Tu amigo se desconectó…' : 'Reconectando…');
+    setConn(mode === 'host' ? 'Tu amigo se desconectó… (reloj en pausa)' : 'Reconectando…');
     if (mode === 'guest') setTimeout(connectToHost, 2500);
   });
   c.on('error', e => console.warn('conn', e));
@@ -662,7 +1032,6 @@ function makePeer(id) {
   p.on('disconnected', () => { if (!p.destroyed) { setConn('Reconectando al servidor…'); setTimeout(() => { if (!p.destroyed && p.disconnected) p.reconnect(); }, 1500); } });
   return p;
 }
-
 function startHostPeer() {
   peer = makePeer(PEER_PREFIX + room); if (!peer) return;
   setConn('Abriendo la sala…');
@@ -693,12 +1062,11 @@ function connectToHost() {
   clearTimeout(openTimer);
   openTimer = setTimeout(() => { if (conn === c && !c.open) { setConn('No conecta todavía, reintento…'); try { c.close(); } catch (e) {} connectToHost(); } }, 12000);
 }
-
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !peer || peer.destroyed) return;
   if (peer.disconnected) peer.reconnect();
   if (mode === 'guest' && !(conn && conn.open)) connectToHost();
-  if (conn && conn.open) send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+  if (conn && conn.open) send(syncMsg());
 });
 
 const shareUrl = () => location.origin + location.pathname + '?sala=' + room;
@@ -706,40 +1074,66 @@ function showInvite() {
   $('invLink').textContent = shareUrl(); $('invColor').textContent = hostColor === 'w' ? 'blancas' : 'negras';
   $('invWait').hidden = connected; $('ovInvite').hidden = false;
 }
-
 function newRoomCode() { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 6; i++) s += a[Math.floor(rnd() * a.length)]; return s; }
 
+function enterOnline() {
+  $('btnChat').hidden = false;
+  chatLog = load(chatKey()) || []; renderChat();
+}
 function startHost(code, saved) {
   mode = 'host'; room = code; hostColor = saved?.hostColor || 'w'; myColor = hostColor;
   history.replaceState(null, '', location.pathname + '?sala=' + code + (params.get('peerhost') ? `&peerhost=${params.get('peerhost')}&peerport=${params.get('peerport') || 9000}` : ''));
-  rebuild(saved?.moves || []); placeCamera(); startHostPeer();
+  const cfg = pickedClock();
+  rebuild(saved?.moves || [], { clk: saved?.clk || { cfg, w: cfg * 60000, b: cfg * 60000 }, tl: saved?.tl });
+  placeCamera(); enterOnline(); startHostPeer();
 }
 function startGuest(code, saved) {
   mode = 'guest'; room = code; hostColor = saved?.hostColor || 'w'; myColor = opp(hostColor);
-  rebuild(saved?.moves || []); placeCamera(); startGuestPeer();
+  rebuild(saved?.moves || [], { clk: saved?.clk, tl: saved?.tl }); placeCamera(); enterOnline(); startGuestPeer();
 }
 function startLocal() {
-  mode = 'local'; room = null; const s = load('jp-local');
-  rebuild(s && s.moves ? s.moves : []); placeCamera();
+  mode = 'local'; room = null; const s = load('jp-local'), cfg = pickedClock();
+  const fresh = !s || !s.moves || !s.moves.length;
+  rebuild(s && s.moves ? s.moves : [], { clk: fresh ? { cfg, w: cfg * 60000, b: cfg * 60000 } : s.clk, tl: s?.tl });
+  placeCamera();
 }
+
+/* ---------- selector de reloj ---------- */
+const CLOCK_OPTS = [0, 1, 3, 5, 10, 15];
+let clockChoice = +(localStorage.getItem('jp-clock') || 0);
+const pickedClock = () => clockChoice;
+function renderChips() {
+  document.querySelectorAll('.clockChips').forEach(box => {
+    box.innerHTML = '';
+    CLOCK_OPTS.forEach(v => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = v ? v + ' min' : 'Sin reloj';
+      b.className = v === clockChoice ? 'sel' : '';
+      b.onclick = () => { clockChoice = v; localStorage.setItem('jp-clock', v); renderChips(); };
+      box.appendChild(b);
+    });
+  });
+}
+renderChips();
 
 /* =========================================================
    CÁMARA, INPUT Y BUCLE
    ========================================================= */
-function viewColor() { const base = mode === 'local' || !mode ? 'w' : myColor; return viewFlip ? opp(base) : base; }
+function viewColor() { const b = mode === 'local' || !mode ? 'w' : myColor; return viewFlip ? opp(b) : b; }
 function placeCamera() {
   const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
   const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
-  const d = Math.max(4.75 / Math.tan(hf), 5.2 / Math.tan(vf));
-  const elev = THREE.MathUtils.degToRad(w < h ? 60 : 50), side = viewColor() === 'w' ? 1 : -1;
+  const top = viewMode === 'top';
+  const d = Math.max(4.75 / Math.tan(hf), (top ? 4.9 : 5.2) / Math.tan(vf));
+  const elev = THREE.MathUtils.degToRad(top ? 84 : (w < h ? 60 : 50)), side = viewColor() === 'w' ? 1 : -1;
   camBase.set(0, Math.sin(elev) * d, Math.cos(elev) * d * side); camera.position.copy(camBase);
-  camera.lookAt(0, .25, 0); camera.updateProjectionMatrix();
+  camera.lookAt(0, top ? 0 : .25, 0); camera.updateProjectionMatrix();
+  updateRows();
 }
 addEventListener('resize', placeCamera);
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
 let down = null;
-canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; Sfx.ensure(); });
+canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; Sfx.ensure(); if (chatOpen()) openChat(false); });
 canvas.addEventListener('pointerup', e => {
   if (!down) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]); down = null; if (moved > 14) return;
   ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
@@ -748,14 +1142,22 @@ canvas.addEventListener('pointerup', e => {
   onTap(o ? o.userData.sq : null);
 });
 
-const clock = new THREE.Clock(); let time = 0;
+const clockFx = new THREE.Clock(); let time = 0;
 function frame() {
-  const dt = Math.min(clock.getDelta(), .05); time += dt;
+  const dt = Math.min(clockFx.getDelta(), .05); time += dt;
   for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i](dt)) tweens.splice(i, 1);
   for (let i = effects.length - 1; i >= 0; i--) if (effects[i](dt)) effects.splice(i, 1);
-  if (!busy) for (const sq in pieceAt) {   // la pieza elegida levita
+  if (!busy) for (const sq in pieceAt) {
     const g = pieceAt[sq], target = sq === selected ? BOARD_Y + .22 + Math.sin(time * 4) * .03 : BOARD_Y;
     g.position.y += (target - g.position.y) * Math.min(1, dt * 12);
+  }
+  // reloj
+  if (clock.cfg > 0 && mode) {
+    const act = clockActive();
+    if (act && turnStart == null) turnStart = now();
+    if (!act && turnStart != null) commitClock();
+    if (act && remaining(chess.turn()) <= 0) onTimeout(chess.turn(), false);
+    renderClocks();
   }
   const pulse = .9 + Math.sin(time * 5) * .12;
   for (const m of targetMarks) if (m.visible && !m.userData.cap) m.scale.setScalar(pulse);
@@ -771,10 +1173,11 @@ function frame() {
    UI
    ========================================================= */
 let toastT;
-function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2300); }
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
 const syncSoundBtn = () => $('btnSound').textContent = Sfx.muted ? '🔇' : '🔊';
 syncSoundBtn();
 $('btnSound').onclick = () => { Sfx.ensure(); Sfx.setMuted(!Sfx.muted); syncSoundBtn(); if (!Sfx.muted) Sfx.place(); };
+$('btnView').onclick = () => { viewMode = viewMode === 'top' ? '3d' : 'top'; localStorage.setItem('jp-view', viewMode); placeCamera(); toast(viewMode === 'top' ? 'Vista desde arriba' : 'Vista 3D'); };
 
 $('btnHost').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startHost(newRoomCode(), null); showInvite(); };
 $('btnLocal').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startLocal(); };
@@ -787,10 +1190,13 @@ $('btnCopy').onclick = async () => { try { await navigator.clipboard.writeText(s
 $('btnInvClose').onclick = () => $('ovInvite').hidden = true;
 $('btnRematch').onclick = () => { $('ovEnd').hidden = true; newGame(false); };
 $('btnEndClose').onclick = () => $('ovEnd').hidden = true;
-$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mRematch').textContent = mode === 'local' ? '♻️ Nueva partida' : '♻️ Revancha (nueva partida)'; $('ovMenu').hidden = false; };
+$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mClock').hidden = !mode; $('mRematch').textContent = mode === 'local' ? '♻️ Nueva partida' : '♻️ Revancha (nueva partida)'; $('ovMenu').hidden = false; };
 $('mClose').onclick = () => $('ovMenu').hidden = true;
 $('ovMenu').onclick = e => { if (e.target.id === 'ovMenu') $('ovMenu').hidden = true; };
 $('mInvite').onclick = () => { $('ovMenu').hidden = true; showInvite(); };
+$('mClock').onclick = () => { $('ovMenu').hidden = true; clockChoice = clock.cfg; renderChips(); $('ovClock').hidden = false; };
+$('clockApply').onclick = () => { $('ovClock').hidden = true; localStorage.setItem('jp-clock', clockChoice); setClock(clockChoice, false); };
+$('clockClose').onclick = () => $('ovClock').hidden = true;
 $('mRematch').onclick = () => { $('ovMenu').hidden = true; if (confirm('¿Empezar una partida nueva?')) newGame(false); };
 $('mFlip').onclick = () => { $('ovMenu').hidden = true; viewFlip = !viewFlip; placeCamera(); };
 $('mHome').onclick = () => { if (peer) peer.destroy(); location.href = location.pathname; };
@@ -806,7 +1212,6 @@ if (qRoom) {
   else { $('ovJoin').hidden = false; $('btnJoin').onclick = () => { Sfx.ensure(); $('ovJoin').hidden = true; startGuest(qRoom, saved); }; }
 }
 frame();
-
 </script>
 </body>
 </html>
