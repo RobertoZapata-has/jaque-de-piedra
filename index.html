@@ -542,9 +542,17 @@ function loadModels() {
     geo.applyMatrix4(src.matrixWorld);
     geo.computeBoundingBox(); const bb = geo.boundingBox, size = bb.getSize(V(0, 0, 0));
     geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
-    const k = md.h / size.y; geo.scale(k, k, k); geo.rotateY(Math.PI);
+    const k = md.h / size.y; geo.scale(k, k, k); geo.rotateY(Math.PI + (md.rot || 0));
     geo.computeVertexNormals();
-    const mat = new THREE.MeshStandardMaterial({ map: src.material.map || null, color: new THREE.Color(md.tint), roughness: .38, metalness: .05 });
+    const tex = src.material && src.material.map;
+    let mat;
+    if (tex && geo.attributes.uv) mat = new THREE.MeshStandardMaterial({ map: tex, color: new THREE.Color(md.tint || '#ffffff'), roughness: .38, metalness: .05 });
+    else { // modelo sin textura: le pongo la misma piedra del bando con una proyección cilíndrica
+      const pos = geo.attributes.position, uv = new Float32Array(pos.count * 2);
+      for (let i = 0; i < pos.count; i++) { uv[i * 2] = (Math.atan2(pos.getX(i), pos.getZ(i)) / (2 * Math.PI) + .5) * 2; uv[i * 2 + 1] = pos.getY(i) / md.h * 1.5; }
+      geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+      mat = md.color === 'w' ? matW : matB;
+    }
     MODEL[md.type + md.color] = { geo, mat, h: md.h };
     // reemplazar las piezas que ya están en el tablero
     for (const sq in pieceAt) {
