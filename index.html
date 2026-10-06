@@ -44,8 +44,8 @@ button{font-family:inherit}
 .pdot{width:12px;height:12px;border-radius:50%;flex:none;border:2px solid #0006}
 .pname{font-weight:700;white-space:nowrap}
 .caps{flex:1;min-width:0;overflow:hidden;white-space:nowrap;font-size:19px;letter-spacing:-3px;line-height:1}
-.caps .cw{color:#f3ead8;text-shadow:0 0 1px #000,0 0 2px #000}
-.caps .cb{color:#2a2b33;text-shadow:0 0 1px #d8cfc0,0 0 2px #d8cfc0}
+.caps .cw{color:#7ea6f0;text-shadow:0 0 1px #000,0 0 2px #000}
+.caps .cb{color:#ef7a6c;text-shadow:0 0 1px #000,0 0 2px #000}
 .adv{color:var(--gold);font-weight:800;font-size:13px;white-space:nowrap}
 .clock{font-variant-numeric:tabular-nums;font-weight:800;font-size:17px;padding:5px 9px;border-radius:9px;background:#120e0b;
   color:var(--muted);min-width:62px;text-align:center;border:1px solid transparent}
@@ -189,7 +189,7 @@ h2{font-size:22px}
 <section class="overlay" id="ovInvite" hidden>
   <div class="card">
     <h2>Invitá a tu amigo</h2>
-    <p class="sub">Mandale este link. Vos jugás con <b id="invColor">blancas</b>.</p>
+    <p class="sub">Mandale este link. Vos jugás con <b id="invColor">azules</b>.</p>
     <div class="link" id="invLink"></div>
     <button class="btn primary" id="btnShare">Compartir por WhatsApp…</button>
     <button class="btn" id="btnCopy">Copiar link</button>
@@ -251,12 +251,16 @@ h2{font-size:22px}
 <script type="module">
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/esm/chess.js';
 
 const $ = id => document.getElementById(id);
 const params = new URLSearchParams(location.search);
 const PEER_PREFIX = 'jaque-piedra-v1-';
 const opp = c => c === 'w' ? 'b' : 'w';
+const TEAM = c => c === 'w' ? 'azules' : 'rojos';
+const TEAM_CSS = { w: '#4f7fd6', b: '#c4473b' };
 const rnd = Math.random;
 const now = () => performance.now();
 
@@ -398,8 +402,8 @@ for (let f = 0; f < 8; f++) for (let r = 0; r < 8; r++) {
 /* =========================================================
    EJÉRCITO DE ESTATUAS (modeladas por código, miran hacia -z)
    ========================================================= */
-const matW = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#ece4d4', dark: '#cfc4b0', light: '#fffaf0', veins: '#9b8e7c', seed: 11 }), roughness: .38, metalness: .02, side: THREE.DoubleSide });
-const matB = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#2c2d37', dark: '#1a1b22', light: '#474a5a', veins: '#8a90a6', veinAlpha: .5, seed: 13 }), roughness: .32, metalness: .1, side: THREE.DoubleSide });
+const matW = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#3d64b3', dark: '#2a4d93', light: '#6d93dc', veins: '#d3e0fa', veinAlpha: .45, seed: 11 }), roughness: .36, metalness: .04, side: THREE.DoubleSide });
+const matB = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#a6372d', dark: '#7c251f', light: '#cc5b4c', veins: '#f4cdbf', veinAlpha: .45, seed: 13 }), roughness: .36, metalness: .04, side: THREE.DoubleSide });
 
 const V = (x, y, z) => new THREE.Vector3(x, y, z);
 const lathe = (pts, seg = 24, ps = 0, pl = Math.PI * 2) => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), seg, ps, pl);
@@ -506,10 +510,50 @@ const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
 const piecesGroup = new THREE.Group(); scene.add(piecesGroup);
 
 function buildPiece(type, color) {
-  const g = new THREE.Group(), m = new THREE.Mesh(PIECE_GEO[type], color === 'w' ? matW : matB);
-  m.castShadow = m.receiveShadow = true; m.rotation.y = color === 'w' ? 0 : Math.PI; m.scale.setScalar(PIECE_SCALE); g.add(m);
-  g.userData = { type, color, h: HEIGHT[type] * PIECE_SCALE };
+  const g = new THREE.Group(), mk = MODEL[type + color];
+  const m = mk ? new THREE.Mesh(mk.geo, mk.mat) : new THREE.Mesh(PIECE_GEO[type], color === 'w' ? matW : matB);
+  m.castShadow = m.receiveShadow = true; m.rotation.y = color === 'w' ? 0 : Math.PI; if (!mk) m.scale.setScalar(PIECE_SCALE); g.add(m);
+  g.userData = { type, color, h: mk ? mk.h : HEIGHT[type] * PIECE_SCALE };
   return g;
+}
+
+/* ---------- Modelos 3D de estatuas (GLB) ---------- */
+// Cada modelo se normaliza: base apoyada en y=0, centrado, altura h y mirando hacia -z.
+const MODELS = [
+  { type: 'k', color: 'w', url: 'modelos/rey-patriota.glb', h: 1.55, tint: '#6790e6' },
+];
+const MODEL = {};
+function toFloat(attr, n) {
+  const a = new Float32Array(attr.count * n);
+  for (let i = 0; i < attr.count; i++) { a[i * n] = attr.getX(i); a[i * n + 1] = attr.getY(i); if (n > 2) a[i * n + 2] = attr.getZ(i); }
+  return new THREE.BufferAttribute(a, n);
+}
+function loadModels() {
+  const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+  for (const md of MODELS) loader.load(md.url, gltf => {
+    gltf.scene.updateMatrixWorld(true);
+    let src = null;
+    gltf.scene.traverse(o => { if (o.isMesh && !src) src = o; });
+    if (!src) return;
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', toFloat(src.geometry.attributes.position, 3));
+    if (src.geometry.attributes.uv) geo.setAttribute('uv', toFloat(src.geometry.attributes.uv, 2));
+    if (src.geometry.index) geo.setIndex(src.geometry.index.clone());
+    geo.applyMatrix4(src.matrixWorld);
+    geo.computeBoundingBox(); const bb = geo.boundingBox, size = bb.getSize(V(0, 0, 0));
+    geo.translate(-(bb.min.x + bb.max.x) / 2, -bb.min.y, -(bb.min.z + bb.max.z) / 2);
+    const k = md.h / size.y; geo.scale(k, k, k); geo.rotateY(Math.PI);
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshStandardMaterial({ map: src.material.map || null, color: new THREE.Color(md.tint), roughness: .38, metalness: .05 });
+    MODEL[md.type + md.color] = { geo, mat, h: md.h };
+    // reemplazar las piezas que ya están en el tablero
+    for (const sq in pieceAt) {
+      const old = pieceAt[sq];
+      if (old.userData.type !== md.type || old.userData.color !== md.color) continue;
+      const g = buildPiece(md.type, md.color); g.position.copy(old.position); g.userData.sq = sq;
+      piecesGroup.remove(old); piecesGroup.add(g); pieceAt[sq] = g;
+    }
+  }, undefined, e => console.warn('No se pudo cargar', md.url, e));
 }
 
 // Marcas en el tablero
@@ -567,7 +611,7 @@ function shatter(group, away, power = 1) {
     dv.push(V(Math.cos(a) * (.3 + rnd() * .9), .2 + rnd() * .8, Math.sin(a) * (.3 + rnd() * .9)));
   }
   const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
-  const dMat = new THREE.PointsMaterial({ color: color === 'w' ? '#e3d8c6' : '#7b7886', size: .11, transparent: true, opacity: .8, depthWrite: false });
+  const dMat = new THREE.PointsMaterial({ color: color === 'w' ? '#a9c0ec' : '#e3a198', size: .11, transparent: true, opacity: .8, depthWrite: false });
   const dust = new THREE.Points(dGeo, dMat); scene.add(dust);
   const flash = new THREE.PointLight('#ffcf8a', 30, 5, 2); flash.position.copy(pos).setY(pos.y + .6); scene.add(flash);
   let t = 0;
@@ -667,7 +711,7 @@ const fmt = ms => { if (ms < 10000) return (ms / 1000).toFixed(1); const s = Mat
 
 /* ---------- tanteador ---------- */
 function rowColors() { const v = viewColor(); return { bot: v, top: opp(v) }; }
-function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Blancas' : 'Negras'; return c === myColor ? 'Vos' : 'Tu amigo'; }
+function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Azules' : 'Rojos'; return c === myColor ? 'Vos' : 'Tu amigo'; }
 function updateRows() {
   const show = !!mode; $('rowTop').hidden = $('rowBot').hidden = !show; if (!show) return;
   const caps = { w: [], b: [] };
@@ -678,7 +722,7 @@ function updateRows() {
   const { bot, top } = rowColors();
   for (const [id, c] of [['rowTop', top], ['rowBot', bot]]) {
     const el = $(id);
-    el.querySelector('.pdot').style.background = c === 'w' ? '#efe7d8' : '#2c2d37';
+    el.querySelector('.pdot').style.background = TEAM_CSS[c];
     el.querySelector('.pname').textContent = playerName(c);
     const list = caps[c].slice().sort((a, b) => order.indexOf(a) - order.indexOf(b));
     el.querySelector('.caps').innerHTML = list.map(t => `<span class="${c === 'w' ? 'cb' : 'cw'}">${GLYPH[t]}︎</span>`).join('');
@@ -760,7 +804,7 @@ function askPromotion(color) {
     const names = { q: 'Reina', r: 'Torre', b: 'Monje', n: 'Caballo' };
     for (const t of ['q', 'r', 'b', 'n']) {
       const b = document.createElement('button');
-      b.innerHTML = `<div><span style="color:${color === 'w' ? '#f3ead8' : '#9aa0b8'}">${GLYPH[t]}︎</span><small>${names[t]}</small></div>`;
+      b.innerHTML = `<div><span style="color:${color === 'w' ? '#7ea6f0' : '#ef7a6c'}">${GLYPH[t]}︎</span><small>${names[t]}</small></div>`;
       b.onclick = () => { $('ovPromo').hidden = true; res(t); }; box.appendChild(b);
     }
     $('promoCancel').onclick = () => { $('ovPromo').hidden = true; res(null); };
@@ -855,11 +899,11 @@ function updateStatus() {
   if (timeoutLoser) txt = 'Se acabó el tiempo';
   else if (chess.isCheckmate()) txt = 'Jaque mate';
   else if (chess.isGameOver()) txt = 'Tablas';
-  else if (mode === 'local') txt = t === 'w' ? 'Turno blancas' : 'Turno negras';
+  else if (mode === 'local') txt = t === 'w' ? 'Turno azules' : 'Turno rojos';
   else txt = t === myColor ? 'Tu turno' : 'Turno de tu amigo';
   if (!gameOver() && chess.inCheck()) txt += ' · ¡Jaque!';
   $('statusText').textContent = txt;
-  $('turnDot').style.background = t === 'w' ? '#efe7d8' : '#2c2d37';
+  $('turnDot').style.background = TEAM_CSS[t];
 }
 
 /* ---------- el GRITO ---------- */
@@ -869,13 +913,13 @@ function shout(kind) {
   let txt, sub = '';
   if (kind === 'check') {
     txt = '¡JAQUE!';
-    sub = mode === 'local' ? (chess.turn() === 'w' ? 'Rey blanco en peligro' : 'Rey negro en peligro') : chess.turn() === myColor ? '¡Cuidá a tu rey!' : '¡Le diste jaque!';
+    sub = mode === 'local' ? (chess.turn() === 'w' ? 'Rey azul en peligro' : 'Rey rojo en peligro') : chess.turn() === myColor ? '¡Cuidá a tu rey!' : '¡Le diste jaque!';
   } else if (kind === 'mate') {
     txt = 'JAQUE<br>MATE';
-    const w = opp(chess.turn()); sub = mode === 'local' ? (w === 'w' ? 'Ganan las blancas' : 'Ganan las negras') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
+    const w = opp(chess.turn()); sub = mode === 'local' ? (w === 'w' ? 'Ganan los azules' : 'Ganan los rojos') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
   } else {
     txt = '¡TIEMPO!';
-    sub = mode === 'local' ? `Se les acabó a las ${timeoutLoser === 'w' ? 'blancas' : 'negras'}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : '¡A tu amigo se le acabó el reloj!';
+    sub = mode === 'local' ? `Se les acabó a los ${TEAM(timeoutLoser)}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : '¡A tu amigo se le acabó el reloj!';
   }
   el.innerHTML = `<div class="vig"></div><div class="inner"><div class="txt">${txt}</div><div class="sub">${sub}</div></div>`;
   el.className = 'show ' + kind;
@@ -889,12 +933,12 @@ function showEnd(silent) {
   let icon = '♚', title = 'Tablas', text = '';
   if (timeoutLoser) {
     const w = opp(timeoutLoser); icon = '⏱';
-    if (mode === 'local') { title = 'Tiempo'; text = `Ganan las ${w === 'w' ? 'blancas' : 'negras'} por tiempo.`; }
+    if (mode === 'local') { title = 'Tiempo'; text = `Ganan los ${TEAM(w)} por tiempo.`; }
     else if (w === myColor) { title = '¡Ganaste por tiempo!'; text = 'A tu amigo se le acabó el reloj.'; if (!silent) Sfx.win(); }
     else { title = 'Se te acabó el tiempo'; text = 'Perdiste por reloj. Pedí la revancha.'; }
   } else if (chess.isCheckmate()) {
     const winner = opp(chess.turn());
-    if (mode === 'local') { title = 'Jaque mate'; text = winner === 'w' ? 'Ganan las blancas.' : 'Ganan las negras.'; icon = winner === 'w' ? '♔' : '♚'; }
+    if (mode === 'local') { title = 'Jaque mate'; text = `Ganan los ${TEAM(winner)}.`; icon = '♚'; }
     else if (winner === myColor) { title = '¡Ganaste!'; text = 'Jaque mate. El rey rival quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
     else { title = 'Perdiste'; text = 'Jaque mate. Pedí la revancha.'; icon = '🪨'; }
   } else {
@@ -907,7 +951,7 @@ function showEnd(silent) {
 function newGame(fromRemote, d) {
   if (mode !== 'local') {
     hostColor = d?.hostColor || opp(hostColor); myColor = mode === 'host' ? hostColor : opp(hostColor);
-    toast(`Nueva partida: jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
+    toast(`Nueva partida: jugás con los ${TEAM(myColor)}`);
   }
   const cfg = d?.clk ? d.clk.cfg : clock.cfg;
   busy = false; rebuild([], { clk: { cfg, w: cfg * 60000, b: cfg * 60000 } }); placeCamera();
@@ -1012,7 +1056,7 @@ function attach(c) {
   c.on('open', () => {
     if (conn !== c) return;
     connected = true; setConn('Conectado con tu amigo', true); $('ovInvite').hidden = true;
-    toast(mode === 'host' ? '¡Tu amigo entró a la partida!' : `Conectado · jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
+    toast(mode === 'host' ? '¡Tu amigo entró a la partida!' : `Conectado · jugás con los ${TEAM(myColor)}`);
     c.send(syncMsg());
     while (pendingChat.length) c.send(pendingChat.shift());
     updateStatus();
@@ -1071,7 +1115,7 @@ document.addEventListener('visibilitychange', () => {
 
 const shareUrl = () => location.origin + location.pathname + '?sala=' + room;
 function showInvite() {
-  $('invLink').textContent = shareUrl(); $('invColor').textContent = hostColor === 'w' ? 'blancas' : 'negras';
+  $('invLink').textContent = shareUrl(); $('invColor').textContent = 'los ' + TEAM(hostColor);
   $('invWait').hidden = connected; $('ovInvite').hidden = false;
 }
 function newRoomCode() { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 6; i++) s += a[Math.floor(rnd() * a.length)]; return s; }
@@ -1202,6 +1246,7 @@ $('mFlip').onclick = () => { $('ovMenu').hidden = true; viewFlip = !viewFlip; pl
 $('mHome').onclick = () => { if (peer) peer.destroy(); location.href = location.pathname; };
 
 // Arranque
+loadModels();
 placeCamera();
 rebuild([]); $('statusText').textContent = 'Jaque de Piedra';
 const qRoom = params.get('sala');
