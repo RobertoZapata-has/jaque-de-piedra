@@ -1,0 +1,812 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#15110e">
+<title>Jaque de Piedra</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}</script>
+<style>
+:root{
+  --bg:#15110e; --panel:#221b16f2; --line:#4a3a2c; --ink:#f1e7d6; --muted:#b9a88f;
+  --gold:#e8c374; --gold-ink:#2a1d0c; --red:#ff6b5a; --ok:#7fe0a6;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#hud{position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  padding:calc(env(safe-area-inset-top) + 12px) 14px 10px}
+#status{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);
+  padding:9px 14px;border-radius:999px;font-weight:600;font-size:15px;max-width:70vw}
+#turnDot{width:14px;height:14px;border-radius:50%;flex:none;border:2px solid #0006;background:#eee}
+#statusText{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btns{display:flex;gap:8px}
+.ico{pointer-events:auto;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:var(--panel);
+  color:var(--ink);font-size:19px;display:grid;place-items:center;cursor:pointer}
+#conn{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom) + 16px);
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:8px 16px;font-size:14px;color:var(--muted);
+  white-space:nowrap;display:flex;align-items:center;gap:8px}
+#conn::before{content:"";width:9px;height:9px;border-radius:50%;background:#e0a84f;box-shadow:0 0 8px #e0a84f}
+#conn[hidden]{display:none}
+#conn.ok{color:var(--ink)} #conn.ok::before{background:var(--ok);box-shadow:0 0 8px var(--ok)}
+#toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 74px);transform:translate(-50%,-10px);opacity:0;
+  background:var(--gold);color:var(--gold-ink);font-weight:700;padding:10px 18px;border-radius:12px;transition:.25s;pointer-events:none;
+  max-width:88vw;text-align:center;font-size:15px;z-index:30}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+.overlay{position:fixed;inset:0;display:grid;place-items:center;padding:20px;background:#0b0806b3;z-index:20;
+  backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+.overlay[hidden]{display:none}
+.overlay.soft{background:#0b080666}
+.card{width:min(380px,100%);background:linear-gradient(180deg,#2a2119,#1b1511);border:1px solid var(--line);border-radius:20px;
+  padding:26px 22px 22px;box-shadow:0 20px 60px #000a;text-align:center}
+h1,h2{font-family:Cinzel,Georgia,serif;margin:0 0 6px;letter-spacing:.04em;color:var(--gold)}
+h1{font-size:30px;font-weight:800;line-height:1.1}
+h2{font-size:22px}
+.sub{color:var(--muted);margin:0 0 22px;font-size:15px;line-height:1.4}
+.card button.btn{display:block;width:100%;margin-top:10px;padding:15px;border-radius:14px;border:1px solid var(--line);
+  background:#30261d;color:var(--ink);font-size:16px;font-weight:600;cursor:pointer}
+.card button.primary{background:var(--gold);color:var(--gold-ink);border-color:#f3d79a}
+.card button:active{transform:scale(.98)}
+.link{display:block;width:100%;margin:6px 0 4px;padding:12px;border-radius:12px;border:1px dashed var(--line);background:#120e0b;
+  color:var(--gold);font-size:14px;word-break:break-all;text-align:center;user-select:text;-webkit-user-select:text}
+.wait{color:var(--muted);font-size:14px;margin-top:14px;display:flex;align-items:center;justify-content:center;gap:8px}
+.spin{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);border-top-color:var(--gold);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+.promo{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.promo button{aspect-ratio:1;font-size:40px;border-radius:14px;border:1px solid var(--line);background:#30261d;color:var(--ink);cursor:pointer;line-height:1}
+.menu button.btn{text-align:left}
+.big{font-size:44px;margin-bottom:4px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="top">
+    <div id="status"><span id="turnDot"></span><span id="statusText">Jaque de Piedra</span></div>
+    <div class="btns">
+      <button class="ico" id="btnSound" aria-label="Sonido">🔊</button>
+      <button class="ico" id="btnMenu" aria-label="Menú">☰</button>
+    </div>
+  </div>
+  <div id="conn" hidden>Esperando rival…</div>
+</div>
+<div id="toast"></div>
+
+<section class="overlay" id="ovStart">
+  <div class="card">
+    <div class="big">♜</div>
+    <h1>Jaque de Piedra</h1>
+    <p class="sub">Ajedrez de piezas de piedra que se hacen pedazos cuando las comen.</p>
+    <button class="btn primary" id="btnHost">Crear partida online</button>
+    <button class="btn" id="btnLocal">Jugar los dos en este celu</button>
+  </div>
+</section>
+
+<section class="overlay" id="ovInvite" hidden>
+  <div class="card">
+    <h2>Invitá a tu amigo</h2>
+    <p class="sub">Mandale este link. Vos jugás con <b id="invColor">blancas</b>.</p>
+    <div class="link" id="invLink"></div>
+    <button class="btn primary" id="btnShare">Compartir por WhatsApp…</button>
+    <button class="btn" id="btnCopy">Copiar link</button>
+    <button class="btn" id="btnInvClose">Ir al tablero</button>
+    <div class="wait" id="invWait"><span class="spin"></span><span>Esperando que entre…</span></div>
+  </div>
+</section>
+
+<section class="overlay" id="ovJoin" hidden>
+  <div class="card">
+    <div class="big">♞</div>
+    <h2>Te desafiaron</h2>
+    <p class="sub">Tu amigo te invitó a una partida de Jaque de Piedra.</p>
+    <button class="btn primary" id="btnJoin">Entrar a la partida</button>
+  </div>
+</section>
+
+<section class="overlay soft" id="ovPromo" hidden>
+  <div class="card">
+    <h2>Coronación</h2>
+    <p class="sub" style="margin-bottom:0">¿En qué se convierte el peón?</p>
+    <div class="promo" id="promoBtns"></div>
+  </div>
+</section>
+
+<section class="overlay soft" id="ovEnd" hidden>
+  <div class="card">
+    <div class="big" id="endIcon">♚</div>
+    <h2 id="endTitle">Jaque mate</h2>
+    <p class="sub" id="endText"></p>
+    <button class="btn primary" id="btnRematch">Revancha</button>
+    <button class="btn" id="btnEndClose">Ver el tablero</button>
+  </div>
+</section>
+
+<section class="overlay soft" id="ovMenu" hidden>
+  <div class="card menu">
+    <h2 style="text-align:center">Menú</h2>
+    <button class="btn" id="mInvite">🔗 Link para tu amigo</button>
+    <button class="btn" id="mRematch">♻️ Nueva partida</button>
+    <button class="btn" id="mFlip">🔄 Girar la vista</button>
+    <button class="btn" id="mHome">🏠 Volver al inicio</button>
+    <button class="btn primary" id="mClose" style="text-align:center">Cerrar</button>
+  </div>
+</section>
+
+<script type="module">
+import * as THREE from 'three';
+import { Chess } from 'https://cdn.jsdelivr.net/npm/chess.js@1.0.0/dist/esm/chess.js';
+
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const PEER_PREFIX = 'jaque-piedra-v1-';
+const opp = c => c === 'w' ? 'b' : 'w';
+const rnd = Math.random;
+
+/* =========================================================
+   SONIDO (sintetizado, sin archivos)
+   ========================================================= */
+const Sfx = {
+  ctx: null, master: null, buf: null, lastPebble: 0,
+  muted: localStorage.getItem('jp-mute') === '1',
+  ensure() {
+    if (!this.ctx) {
+      const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+      this.ctx = new AC();
+      const comp = this.ctx.createDynamicsCompressor(); comp.connect(this.ctx.destination);
+      this.master = this.ctx.createGain(); this.master.gain.value = this.muted ? 0 : .9; this.master.connect(comp);
+      const len = this.ctx.sampleRate * 2; this.buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+      const d = this.buf.getChannelData(0); for (let i = 0; i < len; i++) d[i] = rnd() * 2 - 1;
+    }
+    if (this.ctx.state === 'suspended') this.ctx.resume();
+  },
+  setMuted(m) { this.muted = m; localStorage.setItem('jp-mute', m ? '1' : '0'); if (this.master) this.master.gain.value = m ? 0 : .9; },
+  ok() { return this.ctx && this.ctx.state === 'running' && !this.muted; },
+  noise(t, { dur = .1, freq = 1000, q = 1, gain = .5, type = 'bandpass', attack = .002 } = {}) {
+    const c = this.ctx, s = c.createBufferSource(); s.buffer = this.buf;
+    const f = c.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = c.createGain();
+    g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + attack); g.gain.exponentialRampToValueAtTime(.0001, t + attack + dur);
+    s.connect(f); f.connect(g); g.connect(this.master); s.start(t, rnd() * 1.5); s.stop(t + attack + dur + .05);
+  },
+  tone(t, { f0 = 200, f1 = 60, dur = .2, gain = .5, type = 'sine' } = {}) {
+    const c = this.ctx, o = c.createOscillator(); o.type = type;
+    o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + dur);
+    const g = c.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(gain, t + .005); g.gain.exponentialRampToValueAtTime(.0001, t + dur);
+    o.connect(g); g.connect(this.master); o.start(t); o.stop(t + dur + .05);
+  },
+  // Piedra que se parte: golpe grave + crack + lluvia de cascotes
+  shatter() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    this.tone(t, { f0: 140, f1: 34, dur: .5, gain: 1 });
+    this.noise(t, { dur: .2, freq: 2600, q: .6, gain: .95 });
+    this.noise(t, { dur: .5, freq: 650, q: .5, gain: .6, type: 'lowpass' });
+    this.noise(t + .008, { dur: .07, freq: 5200, q: 1.2, gain: .5 });
+    this.noise(t + .05, { dur: .12, freq: 1700, q: .9, gain: .45 });
+    for (let i = 0; i < 38; i++) {
+      const dt = .05 + Math.pow(rnd(), 1.7) * 1.15, fall = Math.max(.1, 1 - dt / 1.25);
+      this.noise(t + dt, { dur: .012 + rnd() * .05, freq: 1300 + rnd() * 5200, q: 3 + rnd() * 6, gain: .04 + rnd() * .3 * fall });
+    }
+  },
+  slide(dur) { if (!this.ok()) return; this.noise(this.ctx.currentTime, { dur: dur * .8, freq: 420, q: .8, gain: .16, attack: dur * .25, type: 'lowpass' }); },
+  place() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    this.tone(t, { f0: 340, f1: 160, dur: .07, gain: .32, type: 'triangle' }); this.noise(t, { dur: .05, freq: 2400, q: 1.5, gain: .3 });
+  },
+  pebble(v) {
+    if (!this.ok()) return; const t = this.ctx.currentTime; if (t - this.lastPebble < .03) return; this.lastPebble = t;
+    this.noise(t, { dur: .015 + rnd() * .03, freq: 2000 + rnd() * 4500, q: 5, gain: Math.min(.2, .03 + v * .035) });
+  },
+  check() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    this.tone(t, { f0: 196, f1: 190, dur: .6, gain: .28, type: 'triangle' }); this.tone(t + .1, { f0: 233, f1: 228, dur: .6, gain: .2, type: 'triangle' });
+  },
+  magic() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    [880, 1175, 1568, 2093].forEach((f, i) => this.tone(t + i * .07, { f0: f, f1: f * .98, dur: .35, gain: .12 }));
+  },
+  win() {
+    if (!this.ok()) return; const t = this.ctx.currentTime;
+    [392, 523, 659, 784].forEach((f, i) => this.tone(t + i * .12, { f0: f, f1: f, dur: .5, gain: .18, type: 'triangle' }));
+  }
+};
+
+/* =========================================================
+   ESCENA 3D
+   ========================================================= */
+const canvas = $('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#15110e');
+const camera = new THREE.PerspectiveCamera(40, 1, .1, 200);
+const camBase = new THREE.Vector3();
+
+scene.add(new THREE.HemisphereLight('#fff1dc', '#2a1f18', 1.1));
+const sun = new THREE.DirectionalLight('#fff2dc', 2.4);
+sun.position.set(4, 10, 5); sun.castShadow = true; sun.shadow.mapSize.set(1024, 1024);
+Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 30 });
+sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun);
+const coolRim = new THREE.DirectionalLight('#7f9cff', .7); coolRim.position.set(-6, 4, -6); scene.add(coolRim);
+const warm = new THREE.PointLight('#ffae5e', 40, 18, 2); warm.position.set(5, 3.5, -4); scene.add(warm);
+
+// Texturas de piedra procedurales
+function rng(seed) { return () => { seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+function stoneTexture({ base, dark, light, veins, veinAlpha = .35, veinCount = 14, seed = 1, size = 512 }) {
+  const cv = document.createElement('canvas'); cv.width = cv.height = size; const g = cv.getContext('2d'); const r = rng(seed);
+  g.fillStyle = base; g.fillRect(0, 0, size, size);
+  for (let i = 0; i < 500; i++) { g.globalAlpha = .04 + r() * .06; g.fillStyle = r() < .5 ? dark : light; g.beginPath(); g.arc(r() * size, r() * size, 8 + r() * 60, 0, 7); g.fill(); }
+  g.strokeStyle = veins; g.lineCap = 'round';
+  for (let i = 0; i < veinCount; i++) {
+    let x = r() * size, y = r() * size, a = r() * 6.28; g.globalAlpha = veinAlpha * (.4 + r() * .6); g.lineWidth = .6 + r() * 2.2;
+    g.beginPath(); g.moveTo(x, y); for (let k = 0; k < 60; k++) { a += (r() - .5) * .7; x += Math.cos(a) * 9; y += Math.sin(a) * 9; g.lineTo(x, y); } g.stroke();
+  }
+  for (let i = 0; i < 2500; i++) { g.globalAlpha = .08 + r() * .15; g.fillStyle = r() < .5 ? dark : light; g.fillRect(r() * size, r() * size, 1 + r() * 1.5, 1 + r() * 1.5); }
+  g.globalAlpha = 1;
+  const tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.anisotropy = 4;
+  return tex;
+}
+
+// Tablero
+const BOARD_Y = .1;
+const sqPos = sq => new THREE.Vector3(sq.charCodeAt(0) - 97 - 3.5, BOARD_Y, 3.5 - (+sq[1] - 1));
+const lightTex = stoneTexture({ base: '#cdb894', dark: '#a8916c', light: '#e6d6b6', veins: '#8c7556', seed: 3 });
+const darkTex = stoneTexture({ base: '#5e4935', dark: '#3e2f22', light: '#7a624a', veins: '#2a1e15', seed: 7 });
+const tiles = new THREE.Group(); scene.add(tiles);
+const tileGeo = new THREE.BoxGeometry(1, .2, 1);
+for (let f = 0; f < 8; f++) for (let r = 0; r < 8; r++) {
+  const isLight = (f + r) % 2 === 1;
+  const t = (isLight ? lightTex : darkTex).clone(); t.repeat.set(.3, .3); t.offset.set(rnd(), rnd()); t.needsUpdate = true;
+  const m = new THREE.Mesh(tileGeo, new THREE.MeshStandardMaterial({ map: t, roughness: .78 }));
+  const sq = 'abcdefgh'[f] + (r + 1); m.position.copy(sqPos(sq)).setY(0); m.receiveShadow = true; m.userData.sq = sq; tiles.add(m);
+}
+{
+  const ft = stoneTexture({ base: '#2e231b', dark: '#1d1611', light: '#3f3125', veins: '#120d0a', seed: 21 }); ft.repeat.set(2, 2);
+  const frame = new THREE.Mesh(new THREE.BoxGeometry(9.1, .3, 9.1), new THREE.MeshStandardMaterial({ map: ft, roughness: .7 }));
+  frame.position.y = -.06; frame.receiveShadow = true; frame.castShadow = true; scene.add(frame);
+  const cv = document.createElement('canvas'); cv.width = cv.height = 256; const g = cv.getContext('2d');
+  const gr = g.createRadialGradient(128, 128, 10, 128, 128, 128); gr.addColorStop(0, '#2a2018'); gr.addColorStop(1, '#15110e');
+  g.fillStyle = gr; g.fillRect(0, 0, 256, 256);
+  const gt = new THREE.CanvasTexture(cv); gt.colorSpace = THREE.SRGBColorSpace;
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(30, 48).rotateX(-Math.PI / 2), new THREE.MeshStandardMaterial({ map: gt, roughness: 1 }));
+  ground.position.y = -.21; ground.receiveShadow = true; scene.add(ground);
+}
+
+// Piezas (torneadas por código)
+const matW = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#ece4d4', dark: '#cfc4b0', light: '#fffaf0', veins: '#9b8e7c', seed: 11 }), roughness: .32, metalness: .02 });
+const matB = new THREE.MeshStandardMaterial({ map: stoneTexture({ base: '#2c2d37', dark: '#1a1b22', light: '#474a5a', veins: '#8a90a6', veinAlpha: .5, seed: 13 }), roughness: .28, metalness: .1 });
+const lathe = pts => new THREE.LatheGeometry(pts.map(p => new THREE.Vector2(p[0], p[1])), 28);
+const baseP = R => [[0, 0], [R, 0], [R, .06], [R * .9, .09], [R * .82, .13]];
+const GEO = {
+  pawn: lathe([...baseP(.3), [.22, .15], [.14, .3], [.11, .42], [.2, .45], [.2, .49], [.1, .51], [0, .52]]),
+  rook: lathe([...baseP(.34), [.25, .17], [.21, .52], [.27, .6], [.27, .78], [.2, .78], [.2, .7], [0, .7]]),
+  bishop: lathe([...baseP(.32), [.21, .16], [.12, .5], [.21, .55], [.21, .58], [.1, .61], [.16, .72], [.18, .82], [.12, .94], [.04, 1.0], [0, 1.01]]),
+  queen: lathe([...baseP(.36), [.23, .17], [.13, .62], [.25, .67], [.25, .7], [.13, .74], [.2, .96], [.25, 1.06], [.2, 1.07], [.12, 1.1], [0, 1.12]]),
+  king: lathe([...baseP(.36), [.24, .17], [.14, .66], [.26, .71], [.26, .74], [.14, .78], [.21, 1.0], [.24, 1.08], [.15, 1.11], [0, 1.12]]),
+  knightBase: lathe([[0, 0], [.33, 0], [.33, .06], [.3, .09], [.27, .13], [.25, .2], [0, .2]]),
+  ball15: new THREE.SphereGeometry(.15, 20, 14), ball07: new THREE.SphereGeometry(.07, 14, 10),
+  ball055: new THREE.SphereGeometry(.055, 12, 8), ball045: new THREE.SphereGeometry(.045, 10, 8),
+  merlon: new THREE.BoxGeometry(.11, .12, .11), crossV: new THREE.BoxGeometry(.08, .3, .08), crossH: new THREE.BoxGeometry(.24, .08, .08),
+};
+{
+  const s = new THREE.Shape();
+  s.moveTo(-.22, .18); s.lineTo(.2, .18); s.quadraticCurveTo(.12, .36, .14, .46); s.lineTo(.32, .56);
+  s.quadraticCurveTo(.39, .64, .3, .71); s.lineTo(.1, .77); s.quadraticCurveTo(.06, .86, .02, .92); s.lineTo(-.02, 1.0);
+  s.lineTo(-.08, .92); s.quadraticCurveTo(-.22, .86, -.25, .66); s.quadraticCurveTo(-.27, .4, -.22, .18);
+  GEO.head = new THREE.ExtrudeGeometry(s, { depth: .2, bevelEnabled: true, bevelThickness: .04, bevelSize: .035, bevelSegments: 2, curveSegments: 8 });
+  GEO.head.translate(0, 0, -.1); GEO.head.computeVertexNormals();
+}
+const HEIGHT = { p: .79, r: .9, b: 1.1, q: 1.26, k: 1.42, n: 1.0 };
+const piecesGroup = new THREE.Group(); scene.add(piecesGroup);
+
+function buildPiece(type, color) {
+  const mat = color === 'w' ? matW : matB, g = new THREE.Group();
+  const add = (geo, x = 0, y = 0, z = 0) => { const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  if (type === 'p') { add(GEO.pawn); add(GEO.ball15, 0, .64); }
+  if (type === 'r') { add(GEO.rook); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; add(GEO.merlon, Math.cos(a) * .235, .84, Math.sin(a) * .235).rotation.y = -a; } }
+  if (type === 'b') { add(GEO.bishop); add(GEO.ball055, 0, 1.05); }
+  if (type === 'q') { add(GEO.queen); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; add(GEO.ball045, Math.cos(a) * .22, 1.08, Math.sin(a) * .22); } add(GEO.ball07, 0, 1.19); }
+  if (type === 'k') { add(GEO.king); add(GEO.crossV, 0, 1.27); add(GEO.crossH, 0, 1.3); }
+  if (type === 'n') { add(GEO.knightBase); add(GEO.head).rotation.y = color === 'w' ? Math.PI / 2 : -Math.PI / 2; }
+  g.userData = { type, color, h: HEIGHT[type] };
+  return g;
+}
+
+// Marcas en el tablero
+const marks = new THREE.Group(); scene.add(marks);
+const flatMat = (c, o, add) => new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: o, depthWrite: false, blending: add ? THREE.AdditiveBlending : THREE.NormalBlending });
+const dotGeo = new THREE.CircleGeometry(.15, 24).rotateX(-Math.PI / 2);
+const ringGeo = new THREE.RingGeometry(.36, .47, 40).rotateX(-Math.PI / 2);
+const sqGeo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+const dotMat = flatMat('#7cffb2', .85), ringMat = flatMat('#ff5a4a', .9), lastMat = flatMat('#ffd36b', .26), selMat = flatMat('#ffd36b', .45);
+const checkMat = flatMat('#ff2a1a', .7, true);
+const lastMarks = [new THREE.Mesh(sqGeo, lastMat), new THREE.Mesh(sqGeo, lastMat)];
+const selMark = new THREE.Mesh(sqGeo, selMat);
+const checkMark = new THREE.Mesh(new THREE.CircleGeometry(.5, 32).rotateX(-Math.PI / 2), checkMat);
+[...lastMarks, selMark, checkMark].forEach((m, i) => { m.visible = false; m.position.y = BOARD_Y + .002 + i * .0005; scene.add(m); });
+const targetMarks = [];
+
+// Polvo mágico flotando
+const motes = (() => {
+  const N = 90, pos = new Float32Array(N * 3), sp = [];
+  for (let i = 0; i < N; i++) { pos[i * 3] = (rnd() - .5) * 11; pos[i * 3 + 1] = rnd() * 4; pos[i * 3 + 2] = (rnd() - .5) * 11; sp.push(.05 + rnd() * .15); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(geo, new THREE.PointsMaterial({ color: '#ffd89a', size: .05, transparent: true, opacity: .55, depthWrite: false, blending: THREE.AdditiveBlending }));
+  scene.add(p);
+  return dt => { for (let i = 0; i < N; i++) { pos[i * 3 + 1] += sp[i] * dt; if (pos[i * 3 + 1] > 4) pos[i * 3 + 1] = 0; } geo.attributes.position.needsUpdate = true; };
+})();
+
+/* =========================================================
+   ANIMACIONES Y EFECTO DE ROTURA
+   ========================================================= */
+const tweens = [], effects = [];
+let shake = 0;
+const easeIO = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const easeBack = p => { const c = 1.7; return 1 + (c + 1) * Math.pow(p - 1, 3) + c * Math.pow(p - 1, 2); };
+function tween(dur, fn, ease = easeIO) {
+  return new Promise(res => { let t = 0; tweens.push(dt => { t += dt; const p = Math.min(1, t / dur); fn(ease(p), p); if (p >= 1) { res(); return true; } return false; }); });
+}
+const wait = s => tween(s, () => {});
+
+const shardGeos = [new THREE.TetrahedronGeometry(1), new THREE.OctahedronGeometry(1), new THREE.IcosahedronGeometry(1, 0), new THREE.DodecahedronGeometry(1, 0)];
+function shatter(group, away) {
+  const pos = group.position.clone(), h = group.userData.h, color = group.userData.color;
+  piecesGroup.remove(group);
+  const mat = (color === 'w' ? matW : matB).clone(); mat.transparent = true;
+  const shards = [];
+  for (let i = 0; i < 56; i++) {
+    const m = new THREE.Mesh(shardGeos[i % 4], mat), s = .045 + rnd() * .1;
+    m.scale.set(s * (.6 + rnd() * .8), s * (.6 + rnd() * .8), s * (.6 + rnd() * .8));
+    const y = .03 + rnd() * h * .95, rr = rnd() * (.27 - .1 * y / h), a = rnd() * 6.283;
+    m.position.set(pos.x + Math.cos(a) * rr, pos.y + y, pos.z + Math.sin(a) * rr);
+    m.rotation.set(rnd() * 6, rnd() * 6, rnd() * 6); m.castShadow = true; scene.add(m);
+    const v = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(.7 + rnd() * 2.3).addScaledVector(away, 1 + rnd() * 1.8);
+    v.y = 1.4 + rnd() * 3.6 * (.4 + y / h);
+    shards.push({ m, v, w: new THREE.Vector3(rnd() - .5, rnd() - .5, rnd() - .5).multiplyScalar(16), r: s, rest: false });
+  }
+  // polvo
+  const DN = 70, dp = new Float32Array(DN * 3), dv = [];
+  for (let i = 0; i < DN; i++) {
+    const a = rnd() * 6.283, rr = rnd() * .3; dp[i * 3] = pos.x + Math.cos(a) * rr; dp[i * 3 + 1] = pos.y + rnd() * h; dp[i * 3 + 2] = pos.z + Math.sin(a) * rr;
+    dv.push(new THREE.Vector3(Math.cos(a) * (.3 + rnd() * .9), .2 + rnd() * .8, Math.sin(a) * (.3 + rnd() * .9)));
+  }
+  const dGeo = new THREE.BufferGeometry(); dGeo.setAttribute('position', new THREE.BufferAttribute(dp, 3));
+  const dMat = new THREE.PointsMaterial({ color: color === 'w' ? '#e3d8c6' : '#7b7886', size: .11, transparent: true, opacity: .8, depthWrite: false });
+  const dust = new THREE.Points(dGeo, dMat); scene.add(dust);
+  const flash = new THREE.PointLight('#ffcf8a', 30, 5, 2); flash.position.copy(pos).setY(pos.y + .6); scene.add(flash);
+  let t = 0;
+  effects.push(dt => {
+    t += dt;
+    for (const s of shards) {
+      if (s.rest) continue;
+      s.v.y -= 13 * dt; s.m.position.addScaledVector(s.v, dt);
+      s.m.rotation.x += s.w.x * dt; s.m.rotation.y += s.w.y * dt; s.m.rotation.z += s.w.z * dt;
+      const p = s.m.position, onBoard = Math.abs(p.x) < 4.55 && Math.abs(p.z) < 4.55;
+      const floor = (onBoard ? BOARD_Y : -.21) + s.r * .6;
+      if (p.y < floor) {
+        p.y = floor; const vy = Math.abs(s.v.y); if (vy > 1.3) Sfx.pebble(vy);
+        s.v.y = vy * .32; s.v.x *= .55; s.v.z *= .55; s.w.multiplyScalar(.6);
+        if (vy < .5) { s.rest = true; }
+      }
+    }
+    for (let i = 0; i < DN; i++) { dp[i * 3] += dv[i].x * dt; dp[i * 3 + 1] += dv[i].y * dt; dp[i * 3 + 2] += dv[i].z * dt; dv[i].multiplyScalar(1 - 1.5 * dt); }
+    dGeo.attributes.position.needsUpdate = true; dMat.opacity = .8 * Math.max(0, 1 - t / 1.3); dMat.size = .11 + t * .1;
+    flash.intensity = 30 * Math.max(0, 1 - t / .35);
+    if (t > 1.9) { const k = Math.max(0, 1 - (t - 1.9) / .9); mat.opacity = k; for (const s of shards) s.m.position.y -= dt * .04; }
+    if (t > 2.85) {
+      shards.forEach(s => scene.remove(s.m)); scene.remove(dust); scene.remove(flash);
+      mat.dispose(); dGeo.dispose(); dMat.dispose(); return true;
+    }
+    return false;
+  });
+  Sfx.shatter(); shake = .28; try { navigator.vibrate && navigator.vibrate(70); } catch (e) {}
+}
+
+function sparkle(pos) {
+  const N = 40, p = new Float32Array(N * 3), v = [];
+  for (let i = 0; i < N; i++) { p[i * 3] = pos.x; p[i * 3 + 1] = pos.y + .5; p[i * 3 + 2] = pos.z; v.push(new THREE.Vector3(rnd() - .5, rnd() * .8 + .2, rnd() - .5).multiplyScalar(2.2)); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const mat = new THREE.PointsMaterial({ color: '#ffe3a0', size: .09, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+  const pts = new THREE.Points(geo, mat); scene.add(pts); let t = 0;
+  effects.push(dt => { t += dt; for (let i = 0; i < N; i++) { p[i * 3] += v[i].x * dt; p[i * 3 + 1] += v[i].y * dt; p[i * 3 + 2] += v[i].z * dt; v[i].y -= 2 * dt; }
+    geo.attributes.position.needsUpdate = true; mat.opacity = Math.max(0, 1 - t / 1.1); if (t > 1.1) { scene.remove(pts); geo.dispose(); mat.dispose(); return true; } return false; });
+}
+
+/* =========================================================
+   ESTADO DEL JUEGO
+   ========================================================= */
+let chess = new Chess();
+let pieceAt = {};               // casilla -> Group 3D
+let mode = null;                // 'local' | 'host' | 'guest'
+let hostColor = 'w', myColor = 'w', viewFlip = false;
+let room = null, peer = null, conn = null, connected = false;
+let busy = false, selected = null, queue = Promise.resolve(), endShown = false;
+const enqueue = fn => (queue = queue.then(fn).catch(e => console.error(e)));
+const enc = m => m.from + m.to + (m.promotion || '');
+const dec = s => ({ from: s.slice(0, 2), to: s.slice(2, 4), promotion: s[4] || undefined });
+const movesList = () => chess.history({ verbose: true }).map(enc);
+const storeKey = () => room ? 'jp-room-' + room : 'jp-local';
+function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host' })); } catch (e) {} }
+function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
+
+function spawn(type, color, sq) {
+  const g = buildPiece(type, color); g.position.copy(sqPos(sq)); g.userData.sq = sq; piecesGroup.add(g); pieceAt[sq] = g; return g;
+}
+function rebuild(moves) {
+  chess = new Chess();
+  for (const s of moves) { try { chess.move(dec(s)); } catch (e) { console.warn('jugada inválida en historial', s); break; } }
+  piecesGroup.clear(); pieceAt = {};
+  for (const row of chess.board()) for (const c of row) if (c) spawn(c.type, c.color, c.square);
+  clearSelection(); endShown = false; $('ovEnd').hidden = true;
+  updateMarks(); updateStatus(); save();
+  if (chess.isGameOver()) showEnd(true);
+}
+
+function canMove() { return !busy && !chess.isGameOver() && (mode === 'local' || chess.turn() === myColor); }
+
+/* ---------- selección ---------- */
+function clearSelection() { selected = null; selMark.visible = false; targetMarks.forEach(m => m.visible = false); }
+function select(sq) {
+  clearSelection(); selected = sq;
+  selMark.position.set(sqPos(sq).x, selMark.position.y, sqPos(sq).z); selMark.visible = true;
+  const seen = new Set(); let i = 0;
+  for (const m of chess.moves({ square: sq, verbose: true })) {
+    if (seen.has(m.to)) continue; seen.add(m.to);
+    const cap = m.flags.includes('c') || m.flags.includes('e');
+    let mk = targetMarks[i]; if (!mk) { mk = new THREE.Mesh(dotGeo, dotMat); mk.position.y = BOARD_Y + .004; scene.add(mk); targetMarks.push(mk); }
+    mk.geometry = cap ? ringGeo : dotGeo; mk.material = cap ? ringMat : dotMat; mk.userData.cap = cap;
+    const p = sqPos(m.to); mk.position.x = p.x; mk.position.z = p.z; mk.visible = true; i++;
+  }
+  Sfx.place();
+}
+async function onTap(sq) {
+  if (!sq || !canMove()) {
+    if (sq && mode !== 'local' && !busy && !chess.isGameOver() && chess.turn() !== myColor) toast('Es el turno de tu amigo');
+    return;
+  }
+  const p = chess.get(sq);
+  if (selected) {
+    const cands = chess.moves({ square: selected, verbose: true }).filter(m => m.to === sq);
+    if (cands.length) {
+      let promotion;
+      if (cands.some(m => m.promotion)) { promotion = await askPromotion(cands[0].color); if (!promotion) return; }
+      const from = selected; clearSelection();
+      enqueue(() => applyMove({ from, to: sq, promotion }, false));
+      return;
+    }
+  }
+  if (p && p.color === chess.turn() && sq !== selected) select(sq); else clearSelection();
+}
+
+function askPromotion(color) {
+  return new Promise(res => {
+    const box = $('promoBtns'); box.innerHTML = '';
+    const sym = color === 'w' ? { q: '♕', r: '♖', b: '♗', n: '♘' } : { q: '♛', r: '♜', b: '♝', n: '♞' };
+    for (const t of ['q', 'r', 'b', 'n']) {
+      const b = document.createElement('button'); b.textContent = sym[t];
+      b.onclick = () => { $('ovPromo').hidden = true; res(t); }; box.appendChild(b);
+    }
+    $('ovPromo').onclick = e => { if (e.target.id === 'ovPromo') { $('ovPromo').hidden = true; res(null); } };
+    $('ovPromo').hidden = false;
+  });
+}
+
+/* ---------- aplicar y animar jugadas ---------- */
+async function applyMove(mv, remote) {
+  let m;
+  try { m = chess.move(mv); } catch (e) { console.warn('ilegal', mv); if (remote) send({ t: 'need' }); return; }
+  clearSelection(); busy = true; save();
+  if (!remote && mode !== 'local') send({ t: 'move', m: enc(m), n: chess.history().length });
+  updateStatus();
+  await animateMove(m);
+  busy = false; afterMove();
+}
+
+function slidePiece(mesh, a, b, dur, lift) {
+  return tween(dur, e => { mesh.position.lerpVectors(a, b, e); mesh.position.y = BOARD_Y + Math.sin(Math.PI * e) * lift; });
+}
+
+async function animateMove(m) {
+  const mesh = pieceAt[m.from]; delete pieceAt[m.from];
+  let victimSq = null;
+  if (m.flags.includes('e')) victimSq = m.to[0] + m.from[1]; else if (m.captured) victimSq = m.to;
+  const victim = victimSq ? pieceAt[victimSq] : null; if (victimSq) delete pieceAt[victimSq];
+  const a = mesh.position.clone(), b = sqPos(m.to);
+  const dist = sqPos(m.from).distanceTo(b), isKnight = m.piece === 'n';
+  const dur = isKnight ? .62 : Math.min(.95, .34 + dist * .09), lift = isKnight ? .95 : .14;
+  const extra = [];
+  if (m.flags.includes('k') || m.flags.includes('q')) {
+    const r = m.from[1], k = m.flags.includes('k'), rf = (k ? 'h' : 'a') + r, rt = (k ? 'f' : 'd') + r;
+    const rook = pieceAt[rf]; delete pieceAt[rf]; pieceAt[rt] = rook; rook.userData.sq = rt;
+    extra.push(wait(.15).then(() => slidePiece(rook, sqPos(rf), sqPos(rt), dur, .1)));
+  }
+  Sfx.slide(dur);
+  let hit = false; const away = b.clone().sub(sqPos(m.from)).setY(0).normalize();
+  const vPos = victim ? victim.position.clone() : null;
+  if (victim) tween(.18, e => { victim.rotation.z = Math.sin(e * 30) * .05; }, x => x); // la víctima tiembla
+  await Promise.all([tween(dur, e => {
+    mesh.position.lerpVectors(a, b, e);
+    mesh.position.y = (a.y + (BOARD_Y - a.y) * e) + Math.sin(Math.PI * e) * lift;
+    if (victim && !hit && mesh.position.distanceTo(vPos) < .62) { hit = true; shatter(victim, away); }
+  }), ...extra]);
+  if (victim && !hit) shatter(victim, away);
+  mesh.position.copy(b); mesh.rotation.set(0, 0, 0); pieceAt[m.to] = mesh; mesh.userData.sq = m.to;
+  Sfx.place();
+  if (m.promotion) {
+    await wait(.15);
+    piecesGroup.remove(mesh);
+    const np = spawn(m.promotion, m.color, m.to); np.scale.setScalar(.01);
+    Sfx.magic(); sparkle(b);
+    await tween(.5, e => np.scale.setScalar(Math.max(.01, e)), easeBack);
+  }
+}
+
+function afterMove() {
+  updateMarks(); updateStatus();
+  if (chess.isGameOver()) { setTimeout(() => showEnd(false), 1300); return; }
+  if (chess.inCheck()) { Sfx.check(); toast('¡Jaque!'); }
+}
+
+function kingSquare(color) { for (const row of chess.board()) for (const c of row) if (c && c.type === 'k' && c.color === color) return c.square; }
+function updateMarks() {
+  const h = chess.history({ verbose: true }), last = h[h.length - 1];
+  lastMarks.forEach((mk, i) => { if (!last) { mk.visible = false; return; } const p = sqPos(i ? last.to : last.from); mk.position.x = p.x; mk.position.z = p.z; mk.visible = true; });
+  if (chess.inCheck()) { const p = sqPos(kingSquare(chess.turn())); checkMark.position.x = p.x; checkMark.position.z = p.z; checkMark.visible = true; } else checkMark.visible = false;
+}
+
+function updateStatus() {
+  const t = chess.turn(); let txt;
+  if (chess.isCheckmate()) txt = 'Jaque mate';
+  else if (chess.isGameOver()) txt = 'Tablas';
+  else if (mode === 'local') txt = t === 'w' ? 'Juegan las blancas' : 'Juegan las negras';
+  else txt = t === myColor ? 'Tu turno' : 'Turno de tu amigo';
+  if (!chess.isGameOver() && chess.inCheck()) txt += ' · ¡Jaque!';
+  $('statusText').textContent = txt;
+  $('turnDot').style.background = t === 'w' ? '#efe7d8' : '#2c2d37';
+}
+
+function showEnd(silent) {
+  if (endShown) return; endShown = true;
+  let icon = '♚', title = 'Tablas', text = '';
+  if (chess.isCheckmate()) {
+    const winner = opp(chess.turn());
+    if (mode === 'local') { title = 'Jaque mate'; text = winner === 'w' ? 'Ganan las blancas.' : 'Ganan las negras.'; icon = winner === 'w' ? '♔' : '♚'; }
+    else if (winner === myColor) { title = '¡Ganaste!'; text = 'Jaque mate. Tu amigo quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
+    else { title = 'Perdiste'; text = 'Jaque mate. Pedí la revancha.'; icon = '🪨'; }
+  } else {
+    text = chess.isStalemate() ? 'Rey ahogado: no hay jugadas legales.' : chess.isThreefoldRepetition() ? 'Triple repetición.' :
+      chess.isInsufficientMaterial() ? 'No queda material para dar mate.' : 'Regla de los 50 movimientos.';
+  }
+  $('endIcon').textContent = icon; $('endTitle').textContent = title; $('endText').textContent = text; $('ovEnd').hidden = false;
+}
+
+function newGame(fromRemote, newHostColor) {
+  if (mode !== 'local') {
+    hostColor = newHostColor || opp(hostColor); myColor = mode === 'host' ? hostColor : opp(hostColor);
+    if (!fromRemote) send({ t: 'rematch', hostColor });
+    toast(`Nueva partida: jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
+  }
+  busy = false; rebuild([]); placeCamera();
+}
+
+/* =========================================================
+   ONLINE (PeerJS, link directo)
+   ========================================================= */
+function send(d) { if (conn && conn.open) try { conn.send(d); } catch (e) {} }
+function setConn(txt, ok) { const el = $('conn'); el.hidden = false; el.textContent = txt; el.classList.toggle('ok', !!ok); }
+function peerOpts() {
+  const o = { debug: 0 };
+  if (params.get('peerhost')) Object.assign(o, { host: params.get('peerhost'), port: +params.get('peerport') || 9000, path: '/', secure: false });
+  return o;
+}
+const isPrefix = (a, b) => a.length <= b.length && a.every((x, i) => x === b[i]);
+
+function onData(d) {
+  if (!d || !d.t) return;
+  if (d.t === 'move') {
+    const len = chess.history().length;
+    if (d.n === len + 1) enqueue(() => applyMove(dec(d.m), true));
+    else if (d.n > len + 1) send({ t: 'need' });
+  }
+  if (d.t === 'need') send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+  if (d.t === 'sync') enqueue(() => handleSync(d));
+  if (d.t === 'rematch') enqueue(() => newGame(true, d.hostColor));
+}
+
+async function handleSync(d) {
+  const local = movesList(), remote = d.moves || [];
+  if (mode === 'guest' && d.hostColor && d.hostColor !== hostColor) {
+    hostColor = d.hostColor; myColor = opp(hostColor); placeCamera(); updateStatus();
+  }
+  if (remote.join() === local.join()) { save(); return; }
+  const oneAhead = remote.length === local.length + 1 && isPrefix(local, remote);
+  if (mode === 'guest') {
+    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true);
+    else if (isPrefix(remote, local)) send({ t: 'sync', moves: local });   // el invitado va adelantado: avisar al anfitrión
+    else rebuild(remote);                                                   // el anfitrión manda
+  } else if (mode === 'host') {
+    if (oneAhead) await applyMove(dec(remote[remote.length - 1]), true);
+    else if (remote.length > local.length && isPrefix(local, remote)) rebuild(remote);
+    else send({ t: 'sync', moves: local, hostColor });
+  }
+}
+
+function attach(c) {
+  if (conn && conn !== c) { try { conn.close(); } catch (e) {} }
+  conn = c;
+  c.on('open', () => {
+    if (conn !== c) return;
+    connected = true; setConn('Conectado con tu amigo', true); $('ovInvite').hidden = true;
+    toast(mode === 'host' ? '¡Tu amigo entró a la partida!' : `Conectado · jugás con ${myColor === 'w' ? 'blancas' : 'negras'}`);
+    c.send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+    updateStatus();
+  });
+  c.on('data', onData);
+  c.on('close', () => {
+    if (conn !== c) return; connected = false;
+    setConn(mode === 'host' ? 'Tu amigo se desconectó…' : 'Reconectando…');
+    if (mode === 'guest') setTimeout(connectToHost, 2500);
+  });
+  c.on('error', e => console.warn('conn', e));
+}
+
+function makePeer(id) {
+  if (!window.Peer) { setConn('No cargó el módulo online (¿sin internet?)'); return null; }
+  const p = id ? new Peer(id, peerOpts()) : new Peer(peerOpts());
+  p.on('disconnected', () => { if (!p.destroyed) { setConn('Reconectando al servidor…'); setTimeout(() => { if (!p.destroyed && p.disconnected) p.reconnect(); }, 1500); } });
+  return p;
+}
+
+function startHostPeer() {
+  peer = makePeer(PEER_PREFIX + room); if (!peer) return;
+  setConn('Abriendo la sala…');
+  peer.on('open', () => { if (!connected) setConn('Esperando a tu amigo…'); });
+  peer.on('connection', c => attach(c));
+  peer.on('error', e => {
+    if (e.type === 'unavailable-id') { setConn('Recuperando la sala…'); peer.destroy(); setTimeout(startHostPeer, 3000); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) setConn('Sin conexión al servidor, reintentando…');
+    else console.warn(e);
+  });
+}
+let retryTimer = null, openTimer = null;
+function startGuestPeer() {
+  peer = makePeer(null); if (!peer) return;
+  setConn('Conectando…');
+  peer.on('open', connectToHost);
+  peer.on('error', e => {
+    if (e.type === 'peer-unavailable') { setConn('Esperando que tu amigo abra la partida…'); clearTimeout(retryTimer); retryTimer = setTimeout(connectToHost, 4000); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(e.type)) setConn('Sin conexión al servidor, reintentando…');
+    else console.warn(e);
+  });
+}
+function connectToHost() {
+  if (!peer || peer.destroyed) return;
+  if (peer.disconnected) { peer.reconnect(); return; }
+  if (conn && conn.open) return;
+  const c = peer.connect(PEER_PREFIX + room, { reliable: true }); attach(c);
+  clearTimeout(openTimer);
+  openTimer = setTimeout(() => { if (conn === c && !c.open) { setConn('No conecta todavía, reintento…'); try { c.close(); } catch (e) {} connectToHost(); } }, 12000);
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !peer || peer.destroyed) return;
+  if (peer.disconnected) peer.reconnect();
+  if (mode === 'guest' && !(conn && conn.open)) connectToHost();
+  if (conn && conn.open) send({ t: 'sync', moves: movesList(), hostColor: mode === 'host' ? hostColor : undefined });
+});
+
+const shareUrl = () => location.origin + location.pathname + '?sala=' + room;
+function showInvite() {
+  $('invLink').textContent = shareUrl(); $('invColor').textContent = hostColor === 'w' ? 'blancas' : 'negras';
+  $('invWait').hidden = connected; $('ovInvite').hidden = false;
+}
+
+function newRoomCode() { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < 6; i++) s += a[Math.floor(rnd() * a.length)]; return s; }
+
+function startHost(code, saved) {
+  mode = 'host'; room = code; hostColor = saved?.hostColor || 'w'; myColor = hostColor;
+  history.replaceState(null, '', location.pathname + '?sala=' + code + (params.get('peerhost') ? `&peerhost=${params.get('peerhost')}&peerport=${params.get('peerport') || 9000}` : ''));
+  rebuild(saved?.moves || []); placeCamera(); startHostPeer();
+}
+function startGuest(code, saved) {
+  mode = 'guest'; room = code; hostColor = saved?.hostColor || 'w'; myColor = opp(hostColor);
+  rebuild(saved?.moves || []); placeCamera(); startGuestPeer();
+}
+function startLocal() {
+  mode = 'local'; room = null; const s = load('jp-local');
+  rebuild(s && s.moves ? s.moves : []); placeCamera();
+}
+
+/* =========================================================
+   CÁMARA, INPUT Y BUCLE
+   ========================================================= */
+function viewColor() { const base = mode === 'local' || !mode ? 'w' : myColor; return viewFlip ? opp(base) : base; }
+function placeCamera() {
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+  const d = Math.max(4.75 / Math.tan(hf), 5.2 / Math.tan(vf));
+  const elev = THREE.MathUtils.degToRad(w < h ? 60 : 50), side = viewColor() === 'w' ? 1 : -1;
+  camBase.set(0, Math.sin(elev) * d, Math.cos(elev) * d * side); camera.position.copy(camBase);
+  camera.lookAt(0, .25, 0); camera.updateProjectionMatrix();
+}
+addEventListener('resize', placeCamera);
+
+const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; Sfx.ensure(); });
+canvas.addEventListener('pointerup', e => {
+  if (!down) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]); down = null; if (moved > 14) return;
+  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects([piecesGroup, tiles], true)[0];
+  let o = hit && hit.object; while (o && !o.userData.sq) o = o.parent;
+  onTap(o ? o.userData.sq : null);
+});
+
+const clock = new THREE.Clock(); let time = 0;
+function frame() {
+  const dt = Math.min(clock.getDelta(), .05); time += dt;
+  for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i](dt)) tweens.splice(i, 1);
+  for (let i = effects.length - 1; i >= 0; i--) if (effects[i](dt)) effects.splice(i, 1);
+  if (!busy) for (const sq in pieceAt) {   // la pieza elegida levita
+    const g = pieceAt[sq], target = sq === selected ? BOARD_Y + .22 + Math.sin(time * 4) * .03 : BOARD_Y;
+    g.position.y += (target - g.position.y) * Math.min(1, dt * 12);
+  }
+  const pulse = .9 + Math.sin(time * 5) * .12;
+  for (const m of targetMarks) if (m.visible && !m.userData.cap) m.scale.setScalar(pulse);
+  checkMat.opacity = .45 + Math.sin(time * 6) * .25;
+  motes(dt);
+  camera.position.copy(camBase);
+  if (shake > 0) { shake -= dt; const k = shake * .14; camera.position.x += (rnd() - .5) * k; camera.position.y += (rnd() - .5) * k; }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+
+/* =========================================================
+   UI
+   ========================================================= */
+let toastT;
+function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2300); }
+const syncSoundBtn = () => $('btnSound').textContent = Sfx.muted ? '🔇' : '🔊';
+syncSoundBtn();
+$('btnSound').onclick = () => { Sfx.ensure(); Sfx.setMuted(!Sfx.muted); syncSoundBtn(); if (!Sfx.muted) Sfx.place(); };
+
+$('btnHost').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startHost(newRoomCode(), null); showInvite(); };
+$('btnLocal').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startLocal(); };
+$('btnShare').onclick = async () => {
+  const text = '¿Una partida de Jaque de Piedra? Entrá acá:';
+  if (navigator.share) { try { await navigator.share({ title: 'Jaque de Piedra', text, url: shareUrl() }); return; } catch (e) { if (e.name === 'AbortError') return; } }
+  open('https://wa.me/?text=' + encodeURIComponent(text + ' ' + shareUrl()), '_blank');
+};
+$('btnCopy').onclick = async () => { try { await navigator.clipboard.writeText(shareUrl()); toast('Link copiado'); } catch (e) { toast('Mantené apretado el link para copiarlo'); } };
+$('btnInvClose').onclick = () => $('ovInvite').hidden = true;
+$('btnRematch').onclick = () => { $('ovEnd').hidden = true; newGame(false); };
+$('btnEndClose').onclick = () => $('ovEnd').hidden = true;
+$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mRematch').textContent = mode === 'local' ? '♻️ Nueva partida' : '♻️ Revancha (nueva partida)'; $('ovMenu').hidden = false; };
+$('mClose').onclick = () => $('ovMenu').hidden = true;
+$('ovMenu').onclick = e => { if (e.target.id === 'ovMenu') $('ovMenu').hidden = true; };
+$('mInvite').onclick = () => { $('ovMenu').hidden = true; showInvite(); };
+$('mRematch').onclick = () => { $('ovMenu').hidden = true; if (confirm('¿Empezar una partida nueva?')) newGame(false); };
+$('mFlip').onclick = () => { $('ovMenu').hidden = true; viewFlip = !viewFlip; placeCamera(); };
+$('mHome').onclick = () => { if (peer) peer.destroy(); location.href = location.pathname; };
+
+// Arranque
+placeCamera();
+rebuild([]); $('statusText').textContent = 'Jaque de Piedra';
+const qRoom = params.get('sala');
+if (qRoom) {
+  $('ovStart').hidden = true;
+  const saved = load('jp-room-' + qRoom);
+  if (saved && saved.isHost) startHost(qRoom, saved);
+  else { $('ovJoin').hidden = false; $('btnJoin').onclick = () => { Sfx.ensure(); $('ovJoin').hidden = true; startGuest(qRoom, saved); }; }
+}
+frame();
+
+</script>
+</body>
+</html>
