@@ -520,7 +520,10 @@ function buildPiece(type, color) {
 /* ---------- Modelos 3D de estatuas (GLB) ---------- */
 // Cada modelo se normaliza: base apoyada en y=0, centrado, altura h y mirando hacia -z.
 const MODELS = [
-  { type: 'k', color: 'w', url: 'modelos/rey-patriota.glb', h: 1.55, tint: '#6790e6' },
+  { type: 'k', color: 'w', url: 'modelos/rey-patriota.glb', h: 1.55, rot: Math.PI, tint: '#6790e6' },   // San Martín
+  { type: 'q', color: 'w', url: 'modelos/dama-patriota.glb', h: 1.42, rot: 0, tint: '#6790e6' },         // La Libertad
+  { type: 'k', color: 'b', url: 'modelos/rey-realista.glb', h: 1.55, rot: Math.PI, tint: '#e2715f' },    // Fernando VII
+  { type: 'q', color: 'b', url: 'modelos/dama-realista.glb', h: 1.42, rot: 0, tint: '#e2715f' },         // Hispania
 ];
 const MODEL = {};
 function toFloat(attr, n) {
