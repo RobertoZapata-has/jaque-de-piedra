@@ -1174,28 +1174,87 @@ renderChips();
    CÁMARA, INPUT Y BUCLE
    ========================================================= */
 function viewColor() { const b = mode === 'local' || !mode ? 'w' : myColor; return viewFlip ? opp(b) : b; }
-function placeCamera() {
-  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h;
-  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+/* ---------- cámara libre: arrastrar para girar, pellizcar para zoom, dos dedos para mover ---------- */
+const DEG = Math.PI / 180;
+const view = { theta: 0, phi: 60 * DEG, zoom: 1, target: V(0, .25, 0) };
+function resetView() {
   const top = viewMode === 'top';
-  const d = Math.max(4.75 / Math.tan(hf), (top ? 4.9 : 5.2) / Math.tan(vf));
-  const elev = THREE.MathUtils.degToRad(top ? 84 : (w < h ? 60 : 50)), side = viewColor() === 'w' ? 1 : -1;
-  camBase.set(0, Math.sin(elev) * d, Math.cos(elev) * d * side); camera.position.copy(camBase);
-  camera.lookAt(0, top ? 0 : .25, 0); camera.updateProjectionMatrix();
-  updateRows();
+  view.theta = 0; view.zoom = 1;
+  view.phi = top ? 84 * DEG : (innerWidth < innerHeight ? 60 : 50) * DEG;
+  view.target.set(0, top ? 0 : .25, 0);
+}
+function fitDistance() {
+  const vf = THREE.MathUtils.degToRad(camera.fov) / 2, hf = Math.atan(Math.tan(vf) * camera.aspect);
+  return Math.max(4.75 / Math.tan(hf), 5.2 / Math.tan(vf));
+}
+function applyView() {
+  const d = fitDistance() * view.zoom, th = (viewColor() === 'w' ? 0 : Math.PI) + view.theta, ph = view.phi;
+  camBase.set(view.target.x + d * Math.cos(ph) * Math.sin(th), view.target.y + d * Math.sin(ph), view.target.z + d * Math.cos(ph) * Math.cos(th));
+  camera.position.copy(camBase); camera.lookAt(view.target);
+}
+function placeCamera() {
+  const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  applyView(); updateRows();
 }
 addEventListener('resize', placeCamera);
+resetView();
 
 const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
-let down = null;
-canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; Sfx.ensure(); if (chatOpen()) openChat(false); });
-canvas.addEventListener('pointerup', e => {
-  if (!down) return; const moved = Math.hypot(e.clientX - down[0], e.clientY - down[1]); down = null; if (moved > 14) return;
-  ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
-  const hit = ray.intersectObjects([piecesGroup, tiles], true)[0];
-  let o = hit && hit.object; while (o && !o.userData.sq) o = o.parent;
-  onTap(o ? o.userData.sq : null);
+const pointers = new Map(); let gesture = null;
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+function pinchInfo() {
+  const [a, b] = [...pointers.values()];
+  return { dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, angle: Math.atan2(b.y - a.y, b.x - a.x), mx: (a.x + b.x) / 2, my: (a.y + b.y) / 2 };
+}
+function panBy(dx, dy) {
+  const th = (viewColor() === 'w' ? 0 : Math.PI) + view.theta, k = fitDistance() * view.zoom * .0016;
+  const right = V(Math.cos(th), 0, -Math.sin(th)), fwd = V(-Math.sin(th), 0, -Math.cos(th));
+  view.target.addScaledVector(right, -dx * k).addScaledVector(fwd, dy * k);
+  view.target.x = clamp(view.target.x, -4, 4); view.target.z = clamp(view.target.z, -4, 4);
+}
+let hintShown = (() => { try { return localStorage.getItem('jp-hint-cam') === '1'; } catch (e) { return false; } })();
+function moved3D() { if (!hintShown) { hintShown = true; try { localStorage.setItem('jp-hint-cam', '1'); } catch (e) {} } }
+canvas.addEventListener('pointerdown', e => {
+  try { canvas.setPointerCapture(e.pointerId); } catch (_) {}
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY });
+  Sfx.ensure(); if (chatOpen()) openChat(false);
+  if (pointers.size === 1) gesture = { type: 'tap' };
+  else if (pointers.size === 2) gesture = { type: 'pinch', ...pinchInfo() };
+  else gesture = { type: 'none' };
 });
+canvas.addEventListener('pointermove', e => {
+  const p = pointers.get(e.pointerId); if (!p || !gesture) return;
+  const dx = e.clientX - p.x, dy = e.clientY - p.y; p.x = e.clientX; p.y = e.clientY;
+  if (pointers.size === 1) {
+    if (gesture.type === 'tap' && Math.hypot(p.x - p.sx, p.y - p.sy) > 10) gesture.type = 'orbit';
+    if (gesture.type === 'orbit') {
+      view.theta -= dx * .008; view.phi = clamp(view.phi + dy * .006, 12 * DEG, 89.5 * DEG);
+      applyView(); moved3D();
+    }
+  } else if (pointers.size === 2 && gesture.type === 'pinch') {
+    const info = pinchInfo();
+    view.zoom = clamp(view.zoom * gesture.dist / info.dist, .4, 1.7);
+    let da = info.angle - gesture.angle; if (da > Math.PI) da -= 2 * Math.PI; if (da < -Math.PI) da += 2 * Math.PI;
+    view.theta -= da;
+    panBy(info.mx - gesture.mx, info.my - gesture.my);
+    Object.assign(gesture, info); applyView(); moved3D();
+  }
+});
+function pointerEnd(e) {
+  const p = pointers.get(e.pointerId); if (!p) return;
+  pointers.delete(e.pointerId);
+  if (gesture && gesture.type === 'tap' && pointers.size === 0 && e.type === 'pointerup') {
+    ndc.set(e.clientX / innerWidth * 2 - 1, -(e.clientY / innerHeight) * 2 + 1); ray.setFromCamera(ndc, camera);
+    const hit = ray.intersectObjects([piecesGroup, tiles], true)[0];
+    let o = hit && hit.object; while (o && !o.userData.sq) o = o.parent;
+    onTap(o ? o.userData.sq : null);
+  }
+  if (pointers.size === 1) { const q = [...pointers.values()][0]; q.sx = q.x; q.sy = q.y; gesture = { type: 'orbit' }; }
+  if (pointers.size === 0) gesture = null;
+}
+canvas.addEventListener('pointerup', pointerEnd);
+canvas.addEventListener('pointercancel', pointerEnd);
+canvas.addEventListener('wheel', e => { e.preventDefault(); view.zoom = clamp(view.zoom * (1 + e.deltaY * .001), .4, 1.7); applyView(); }, { passive: false });
 
 const clockFx = new THREE.Clock(); let time = 0;
 function frame() {
@@ -1228,14 +1287,15 @@ function frame() {
    UI
    ========================================================= */
 let toastT;
+function camHint() { if (!hintShown) setTimeout(() => { if (!hintShown && $('ovInvite').hidden) toast('Arrastrá para girar el tablero · pellizcá para zoom · 👁 vuelve a la vista inicial'); }, 1500); }
 function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600); }
 const syncSoundBtn = () => $('btnSound').textContent = Sfx.muted ? '🔇' : '🔊';
 syncSoundBtn();
 $('btnSound').onclick = () => { Sfx.ensure(); Sfx.setMuted(!Sfx.muted); syncSoundBtn(); if (!Sfx.muted) Sfx.place(); };
-$('btnView').onclick = () => { viewMode = viewMode === 'top' ? '3d' : 'top'; localStorage.setItem('jp-view', viewMode); placeCamera(); toast(viewMode === 'top' ? 'Vista desde arriba' : 'Vista 3D'); };
+$('btnView').onclick = () => { viewMode = viewMode === 'top' ? '3d' : 'top'; localStorage.setItem('jp-view', viewMode); resetView(); placeCamera(); toast(viewMode === 'top' ? 'Vista desde arriba · arrastrá para girar' : 'Vista 3D · arrastrá para girar, pellizcá para zoom'); };
 
-$('btnHost').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startHost(newRoomCode(), null); showInvite(); };
-$('btnLocal').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startLocal(); };
+$('btnHost').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startHost(newRoomCode(), null); showInvite(); camHint(); };
+$('btnLocal').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startLocal(); camHint(); };
 $('btnShare').onclick = async () => {
   const text = '¿Una partida de Jaque de Piedra? Entrá acá:';
   if (navigator.share) { try { await navigator.share({ title: 'Jaque de Piedra', text, url: shareUrl() }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -1265,7 +1325,7 @@ if (qRoom) {
   $('ovStart').hidden = true;
   const saved = load('jp-room-' + qRoom);
   if (saved && saved.isHost) startHost(qRoom, saved);
-  else { $('ovJoin').hidden = false; $('btnJoin').onclick = () => { Sfx.ensure(); $('ovJoin').hidden = true; startGuest(qRoom, saved); }; }
+  else { $('ovJoin').hidden = false; $('btnJoin').onclick = () => { Sfx.ensure(); $('ovJoin').hidden = true; startGuest(qRoom, saved); camHint(); }; }
 }
 frame();
 </script>
