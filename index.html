@@ -4,6 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
 <meta name="theme-color" content="#15110e">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="iconos/icon-192.png">
+<link rel="apple-touch-icon" href="iconos/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Jaque de Piedra</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800;900&display=swap" rel="stylesheet">
@@ -117,6 +122,20 @@ h2{font-size:22px}
 .promo button{aspect-ratio:1;font-size:42px;border-radius:14px;border:1px solid var(--line);background:#30261d;color:var(--ink);cursor:pointer;line-height:1;display:grid;place-items:center}
 .promo small{display:block;font-size:11px;color:var(--muted);margin-top:2px}
 .menu button.btn{text-align:left}
+.menu button.btn[hidden],.card button.btn[hidden]{display:none}
+.lv{display:flex;flex-direction:column;gap:8px;margin:4px 0 14px}
+.lv button{display:flex;align-items:center;gap:12px;text-align:left;padding:11px 12px;border-radius:12px;border:1px solid var(--line);background:#30261d;color:var(--ink);cursor:pointer}
+.lv button.sel{background:var(--gold);color:var(--gold-ink);border-color:#f3d79a}
+.lv .stars{font-size:13px;letter-spacing:1px;min-width:62px;color:var(--gold)}
+.lv button.sel .stars{color:var(--gold-ink)}
+.lv b{display:block;font-size:15px}
+.lv small{display:block;font-size:12.5px;opacity:.8;margin-top:1px}
+.side{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:6px}
+.side button{padding:11px 6px;border-radius:12px;border:1px solid var(--line);background:#30261d;color:var(--ink);font-size:14px;font-weight:600;cursor:pointer}
+.side button.sel.w{background:#3d64b3;border-color:#6d93dc;color:#fff}
+.side button.sel.b{background:#a6372d;border-color:#cc5b4c;color:#fff}
+.side button.sel.r{background:var(--gold);border-color:#f3d79a;color:var(--gold-ink)}
+#thinking{display:inline-block;width:1.2em;text-align:left}
 .big{font-size:44px;margin-bottom:4px}
 
 /* chat */
@@ -182,7 +201,9 @@ h2{font-size:22px}
     <div class="lbl">⏱ Reloj por jugador</div>
     <div class="chips clockChips"></div>
     <button class="btn primary" id="btnHost">Crear partida online</button>
+    <button class="btn" id="btnCpu">Jugar contra la PC</button>
     <button class="btn" id="btnLocal">Jugar los dos en este celu</button>
+    <button class="btn" id="btnInstall" hidden>📲 Instalar como app</button>
   </div>
 </section>
 
@@ -204,6 +225,23 @@ h2{font-size:22px}
     <h2>Te desafiaron</h2>
     <p class="sub">Tu amigo te invitó a una partida de Jaque de Piedra.</p>
     <button class="btn primary" id="btnJoin">Entrar a la partida</button>
+  </div>
+</section>
+
+<section class="overlay" id="ovCpu" hidden>
+  <div class="card">
+    <h2>Contra la PC</h2>
+    <p class="sub" style="margin-bottom:12px">Elegí el rango de tu rival.</p>
+    <div class="lv" id="lvBtns"></div>
+    <div class="lbl">Jugás con</div>
+    <div class="side" id="sideBtns">
+      <button type="button" data-s="w" class="w">Patriotas</button>
+      <button type="button" data-s="b" class="b">Realistas</button>
+      <button type="button" data-s="r" class="r">Al azar</button>
+    </div>
+    <button class="btn primary" id="cpuStart">Empezar</button>
+    <button class="btn" id="cpuResume" hidden>Seguir la partida guardada</button>
+    <button class="btn" id="cpuBack">Volver</button>
   </div>
 </section>
 
@@ -240,10 +278,12 @@ h2{font-size:22px}
   <div class="card menu">
     <h2 style="text-align:center">Menú</h2>
     <button class="btn" id="mInvite">🔗 Link para tu amigo</button>
+    <button class="btn" id="mUndo">↩️ Deshacer jugada</button>
     <button class="btn" id="mClock">⏱ Reloj</button>
     <button class="btn" id="mRematch">♻️ Nueva partida</button>
     <button class="btn" id="mFlip">🔄 Girar el tablero</button>
     <button class="btn" id="mHome">🏠 Volver al inicio</button>
+    <button class="btn" id="mInstall" hidden>📲 Instalar como app</button>
     <button class="btn primary" id="mClose" style="text-align:center">Cerrar</button>
   </div>
 </section>
@@ -672,13 +712,14 @@ let room = null, peer = null, conn = null, connected = false;
 let busy = false, selected = null, queue = Promise.resolve(), endShown = false;
 let clock = { cfg: 0, w: 0, b: 0 }, turnStart = null, timeoutLoser = null;
 let chatLog = [], unread = 0, pendingChat = [];
+const isOnline = () => mode === 'host' || mode === 'guest';
 const enqueue = fn => (queue = queue.then(fn).catch(e => console.error(e)));
 const enc = m => m.from + m.to + (m.promotion || '');
 const dec = s => ({ from: s.slice(0, 2), to: s.slice(2, 4), promotion: s[4] || undefined });
 const movesList = () => chess.history({ verbose: true }).map(enc);
-const storeKey = () => room ? 'jp-room-' + room : 'jp-local';
+const storeKey = () => room ? 'jp-room-' + room : mode === 'cpu' ? 'jp-cpu' : 'jp-local';
 const gameOver = () => chess.isGameOver() || !!timeoutLoser;
-function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host', clk: liveClock(), tl: timeoutLoser })); } catch (e) {} }
+function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host', clk: liveClock(), tl: timeoutLoser, lvl: cpuLevel, my: myColor, over: gameOver() })); } catch (e) {} }
 function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
 
 function spawn(type, color, sq) {
@@ -698,7 +739,7 @@ function rebuild(moves, st = {}) {
 function canMove() { return !busy && !gameOver() && (mode === 'local' || chess.turn() === myColor); }
 
 /* ---------- reloj ---------- */
-function clockActive() { return clock.cfg > 0 && chess.history().length > 0 && !gameOver() && (mode === 'local' || connected); }
+function clockActive() { return clock.cfg > 0 && chess.history().length > 0 && !gameOver() && (mode === 'local' || mode === 'cpu' || connected); }
 function remaining(c) { let v = clock[c]; if (turnStart != null && c === chess.turn()) v -= now() - turnStart; return Math.max(0, v); }
 function liveClock() { return { cfg: clock.cfg, w: remaining('w'), b: remaining('b') }; }
 function commitClock() {
@@ -709,7 +750,7 @@ function commitClock() {
 function setClock(cfg, fromRemote, clk) {
   clock = clk ? { cfg: clk.cfg, w: clk.w, b: clk.b } : { cfg, w: cfg * 60000, b: cfg * 60000 };
   turnStart = null; save(); updateRows();
-  if (!fromRemote && mode !== 'local') send({ t: 'clock', clk: liveClock() });
+  if (!fromRemote && isOnline()) send({ t: 'clock', clk: liveClock() });
   toast(clock.cfg ? `⏱ Reloj: ${clock.cfg} min por jugador` : 'Reloj desactivado');
 }
 function onTimeout(loser, fromRemote) {
@@ -722,7 +763,7 @@ const fmt = ms => { if (ms < 10000) return (ms / 1000).toFixed(1); const s = Mat
 
 /* ---------- tanteador ---------- */
 function rowColors() { const v = viewColor(); return { bot: v, top: opp(v) }; }
-function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Azules' : 'Rojos'; return c === myColor ? 'Vos' : 'Tu amigo'; }
+function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Azules' : 'Rojos'; if (c === myColor) return 'Vos'; return mode === 'cpu' ? 'PC · ' + LEVELS[cpuLevel].name : 'Tu amigo'; }
 function updateRows() {
   const show = !!mode; $('rowTop').hidden = $('rowBot').hidden = !show; if (!show) return;
   const caps = { w: [], b: [] };
@@ -792,7 +833,7 @@ function explainIllegal(from, to) {
 async function onTap(sq) {
   if (!sq) return;
   if (!canMove()) {
-    if (mode !== 'local' && !busy && !gameOver() && chess.turn() !== myColor) toast('Es el turno de tu amigo');
+    if (mode !== 'local' && !busy && !gameOver() && chess.turn() !== myColor) toast(mode === 'cpu' ? 'La PC está pensando…' : 'Es el turno de tu amigo');
     return;
   }
   const p = chess.get(sq);
@@ -831,7 +872,7 @@ async function applyMove(mv, remote, clk) {
   if (remote && clk) clock = { cfg: clk.cfg, w: clk.w, b: clk.b };
   turnStart = clockActive() ? now() : null;
   clearSelection(); busy = true; save();
-  if (!remote && mode !== 'local') send({ t: 'move', m: enc(m), n: chess.history().length, clk: liveClock() });
+  if (!remote && isOnline()) send({ t: 'move', m: enc(m), n: chess.history().length, clk: liveClock() });
   updateStatus(); updateRows();
   await animateMove(m);
   busy = false;
@@ -896,6 +937,7 @@ async function afterMove(m) {
   }
   if (gameOver()) { await wait(1.2); showEnd(false); return; }
   if (chess.inCheck()) shout('check');
+  cpuMaybeMove();
 }
 
 function kingSquare(color) { for (const row of chess.board()) for (const c of row) if (c && c.type === 'k' && c.color === color) return c.square; }
@@ -911,6 +953,7 @@ function updateStatus() {
   else if (chess.isCheckmate()) txt = 'Jaque mate';
   else if (chess.isGameOver()) txt = 'Tablas';
   else if (mode === 'local') txt = t === 'w' ? 'Turno azules' : 'Turno rojos';
+  else if (mode === 'cpu') txt = t === myColor ? 'Tu turno' : 'Piensa la PC';
   else txt = t === myColor ? 'Tu turno' : 'Turno de tu amigo';
   if (!gameOver() && chess.inCheck()) txt += ' · ¡Jaque!';
   $('statusText').textContent = txt;
@@ -930,7 +973,7 @@ function shout(kind) {
     const w = opp(chess.turn()); sub = mode === 'local' ? (w === 'w' ? 'Ganan los azules' : 'Ganan los rojos') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
   } else {
     txt = '¡TIEMPO!';
-    sub = mode === 'local' ? `Se les acabó a los ${TEAM(timeoutLoser)}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : '¡A tu amigo se le acabó el reloj!';
+    sub = mode === 'local' ? `Se les acabó a los ${TEAM(timeoutLoser)}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : (mode === 'cpu' ? '¡A la PC se le acabó el reloj!' : '¡A tu amigo se le acabó el reloj!');
   }
   el.innerHTML = `<div class="vig"></div><div class="inner"><div class="txt">${txt}</div><div class="sub">${sub}</div></div>`;
   el.className = 'show ' + kind;
@@ -945,12 +988,12 @@ function showEnd(silent) {
   if (timeoutLoser) {
     const w = opp(timeoutLoser); icon = '⏱';
     if (mode === 'local') { title = 'Tiempo'; text = `Ganan los ${TEAM(w)} por tiempo.`; }
-    else if (w === myColor) { title = '¡Ganaste por tiempo!'; text = 'A tu amigo se le acabó el reloj.'; if (!silent) Sfx.win(); }
+    else if (w === myColor) { title = '¡Ganaste por tiempo!'; text = mode === 'cpu' ? 'A la PC se le acabó el reloj.' : 'A tu amigo se le acabó el reloj.'; if (!silent) Sfx.win(); }
     else { title = 'Se te acabó el tiempo'; text = 'Perdiste por reloj. Pedí la revancha.'; }
   } else if (chess.isCheckmate()) {
     const winner = opp(chess.turn());
     if (mode === 'local') { title = 'Jaque mate'; text = `Ganan los ${TEAM(winner)}.`; icon = '♚'; }
-    else if (winner === myColor) { title = '¡Ganaste!'; text = 'Jaque mate. El rey rival quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
+    else if (winner === myColor) { title = '¡Ganaste!'; text = mode === 'cpu' ? `Jaque mate. Le ganaste al ${LEVELS[cpuLevel].name}.` : 'Jaque mate. El rey rival quedó hecho escombros.'; icon = '🏆'; if (!silent) Sfx.win(); }
     else { title = 'Perdiste'; text = 'Jaque mate. Pedí la revancha.'; icon = '🪨'; }
   } else {
     text = chess.isStalemate() ? 'Rey ahogado: no hay jugadas legales.' : chess.isThreefoldRepetition() ? 'Triple repetición.' :
@@ -960,13 +1003,16 @@ function showEnd(silent) {
 }
 
 function newGame(fromRemote, d) {
-  if (mode !== 'local') {
+  cpuCancel();
+  if (mode === 'cpu' && cpuSide === 'r') { myColor = rnd() < .5 ? 'w' : 'b'; toast(`Nueva partida: jugás con los ${TEAM(myColor)}`); }
+  if (isOnline()) {
     hostColor = d?.hostColor || opp(hostColor); myColor = mode === 'host' ? hostColor : opp(hostColor);
     toast(`Nueva partida: jugás con los ${TEAM(myColor)}`);
   }
   const cfg = d?.clk ? d.clk.cfg : clock.cfg;
-  busy = false; rebuild([], { clk: { cfg, w: cfg * 60000, b: cfg * 60000 } }); placeCamera();
-  if (!fromRemote && mode !== 'local') send({ t: 'rematch', hostColor, clk: liveClock() });
+  busy = false; rebuild([], { clk: { cfg, w: cfg * 60000, b: cfg * 60000 } }); resetView(); placeCamera();
+  if (!fromRemote && isOnline()) send({ t: 'rematch', hostColor, clk: liveClock() });
+  cpuMaybeMove();
 }
 
 /* =========================================================
@@ -1153,6 +1199,135 @@ function startLocal() {
   placeCamera();
 }
 
+/* =========================================================
+   CONTRA LA PC (Stockfish en el navegador)
+   ========================================================= */
+const LEVELS = [
+  { name: 'Recluta',  desc: 'Recién llegado al cuartel. Se equivoca seguido.', skill: 0,  go: 'depth 1',       random: .35 },
+  { name: 'Soldado',  desc: 'Sabe lo básico, pero deja piezas colgadas.',      skill: 3,  go: 'depth 3',       random: .1 },
+  { name: 'Sargento', desc: 'Ve las trampas simples. Pide atención.',          skill: 8,  go: 'depth 6',       random: 0 },
+  { name: 'Coronel',  desc: 'Táctico y paciente. Cuesta ganarle.',             skill: 14, go: 'movetime 700',  random: 0 },
+  { name: 'General',  desc: 'Nivel San Martín: casi imbatible.',               skill: 20, go: 'movetime 1500', random: 0 },
+];
+let cpuLevel = +(localStorage.getItem('jp-cpu-level') ?? 1), cpuSide = localStorage.getItem('jp-cpu-side') || 'w';
+if (!(cpuLevel >= 0 && cpuLevel < LEVELS.length)) cpuLevel = 1;
+let engine = null, engineReady = false, engineFailed = false, engineQueue = [], cpuToken = 0, cpuThinking = false, cpuFinish = null, searches = 0;
+
+function getEngine() {
+  if (engine || engineFailed) return engine;
+  try {
+    engine = new Worker('motor/stockfish-18-lite-single.js');
+    engine.onmessage = e => {
+      const line = typeof e.data === 'string' ? e.data : '';
+      if (line === 'readyok' && !engineReady) { engineReady = true; engineQueue.splice(0).forEach(c => engine.postMessage(c)); }
+      if (line.startsWith('bestmove')) { searches = Math.max(0, searches - 1); if (searches === 0 && cpuFinish) cpuFinish(line.split(' ')[1]); }   // ignora respuestas de búsquedas canceladas
+    };
+    engine.onerror = () => { engineFailed = true; engine = null; if (cpuFinish) cpuFinish(null); };
+    engine.postMessage('uci'); engine.postMessage('isready');
+  } catch (e) { engineFailed = true; engine = null; }
+  return engine;
+}
+function engineSend(cmd) { if (!engine) return; if (engineReady) engine.postMessage(cmd); else engineQueue.push(cmd); }
+function cpuCancel() {
+  cpuToken++; cpuFinish = null;
+  if (cpuThinking && engine && engineReady) engine.postMessage('stop');
+  cpuThinking = false; if (mode === 'cpu') updateStatus();
+}
+let dotsT = 0;
+setInterval(() => { const d = document.getElementById('thinking'); if (d) d.textContent = '.'.repeat(1 + (dotsT++ % 3)); }, 400);
+
+function cpuMaybeMove() {
+  if (mode !== 'cpu' || gameOver() || chess.turn() === myColor || cpuThinking) return;
+  const token = ++cpuToken, ply = chess.history().length, lv = LEVELS[cpuLevel], t0 = now();
+  cpuThinking = true; $('statusText').innerHTML = 'Piensa la PC<span id="thinking">.</span>';
+  const finish = uci => {
+    if (token !== cpuToken || cpuFinish !== finish) return;
+    cpuFinish = null;
+    if (chess.history().length !== ply || gameOver()) { cpuThinking = false; return; }
+    const legal = chess.moves({ verbose: true });
+    let mv = uci && uci !== '(none)' ? { from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] || undefined } : null;
+    if (!mv || !legal.some(m => m.from === mv.from && m.to === mv.to)) mv = pickFallback(legal);
+    if (lv.random && rnd() < lv.random) { const r = legal[Math.floor(rnd() * legal.length)]; mv = { from: r.from, to: r.to, promotion: r.promotion }; }
+    setTimeout(() => {
+      if (token !== cpuToken || chess.history().length !== ply) return;
+      cpuThinking = false; enqueue(() => applyMove(mv, false));
+    }, Math.max(0, 650 - (now() - t0)));
+  };
+  cpuFinish = finish;
+  const eng = getEngine();
+  if (!eng) { setTimeout(() => finish(null), 300); return; }
+  if (!engineReady) setTimeout(() => { if (token === cpuToken && cpuThinking && !engineReady) toast('Preparando a la PC…'); }, 900);
+  engineSend('ucinewgame');
+  engineSend('setoption name Skill Level value ' + lv.skill);
+  engineSend('position fen ' + chess.fen());
+  searches++; engineSend('go ' + lv.go);
+  setTimeout(() => finish(null), 20000);   // si el motor no responde, juega igual
+}
+function pickFallback(legal) {
+  // Sin motor: prefiere el mate, después comer lo más valioso; si no, al azar.
+  let best = null, score = -1e9;
+  for (const m of legal) {
+    let sc = rnd();
+    if (m.san.includes('#')) sc += 1000; else if (m.captured) sc += 10 * VALUE[m.captured] - VALUE[m.piece];
+    if (m.san.includes('+')) sc += 2;
+    if (sc > score) { score = sc; best = m; }
+  }
+  return best ? { from: best.from, to: best.to, promotion: best.promotion } : null;
+}
+
+function renderCpuSetup() {
+  const box = $('lvBtns'); box.innerHTML = '';
+  LEVELS.forEach((lv, i) => {
+    const b = document.createElement('button'); b.type = 'button'; b.className = i === cpuLevel ? 'sel' : '';
+    b.innerHTML = `<span class="stars">${'★'.repeat(i + 1)}${'☆'.repeat(4 - i)}</span><span><b>${lv.name}</b><small>${lv.desc}</small></span>`;
+    b.onclick = () => { cpuLevel = i; localStorage.setItem('jp-cpu-level', i); renderCpuSetup(); };
+    box.appendChild(b);
+  });
+  document.querySelectorAll('#sideBtns button').forEach(b => {
+    b.classList.toggle('sel', b.dataset.s === cpuSide);
+    b.onclick = () => { cpuSide = b.dataset.s; localStorage.setItem('jp-cpu-side', cpuSide); renderCpuSetup(); };
+  });
+  const s = load('jp-cpu');
+  $('cpuResume').hidden = !(s && s.moves && s.moves.length && !s.over);
+}
+function startCpu(resume) {
+  mode = 'cpu'; room = null; cpuCancel();
+  const s = resume ? load('jp-cpu') : null, cfg = pickedClock();
+  if (s) { cpuLevel = s.lvl ?? cpuLevel; myColor = s.my || 'w'; }
+  else myColor = cpuSide === 'r' ? (rnd() < .5 ? 'w' : 'b') : cpuSide;
+  hostColor = myColor;
+  rebuild(s ? s.moves : [], { clk: s ? s.clk : { cfg, w: cfg * 60000, b: cfg * 60000 }, tl: s?.tl });
+  resetView(); placeCamera();
+  getEngine();
+  toast(`Contra el ${LEVELS[cpuLevel].name} · jugás con los ${TEAM(myColor)}`);
+  cpuMaybeMove();
+}
+function undoMove() {
+  if (busy) { toast('Esperá que termine la jugada'); return; }
+  cpuCancel();
+  const list = movesList(); if (!list.length) { toast('No hay jugadas para deshacer'); return; }
+  if (mode === 'cpu') {
+    const turnAfter = l => { const c = new Chess(); l.forEach(x => c.move(dec(x))); return c.turn(); };
+    do list.pop(); while (list.length && turnAfter(list) !== myColor);
+  } else list.pop();
+  rebuild(list, { clk: liveClock() }); toast('Jugada deshecha');
+  cpuMaybeMove();
+}
+
+/* ---------- instalar como app ---------- */
+let installEvt = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('btnInstall').hidden = false; });
+addEventListener('appinstalled', () => { installEvt = null; $('btnInstall').hidden = true; toast('¡Instalada! Ya la tenés en el inicio'); });
+async function doInstall() {
+  $('ovMenu').hidden = true;
+  if (!installEvt) { toast('Abrí el menú de Chrome (⋮) y tocá "Instalar app" o "Agregar a la pantalla principal"'); return; }
+  installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {}
+  installEvt = null; $('btnInstall').hidden = true;
+}
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e)));
+}
+
 /* ---------- selector de reloj ---------- */
 const CLOCK_OPTS = [0, 1, 3, 5, 10, 15];
 let clockChoice = +(localStorage.getItem('jp-clock') || 0);
@@ -1296,6 +1471,12 @@ $('btnView').onclick = () => { viewMode = viewMode === 'top' ? '3d' : 'top'; loc
 
 $('btnHost').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startHost(newRoomCode(), null); showInvite(); camHint(); };
 $('btnLocal').onclick = () => { Sfx.ensure(); $('ovStart').hidden = true; startLocal(); camHint(); };
+$('btnCpu').onclick = () => { Sfx.ensure(); renderCpuSetup(); $('ovStart').hidden = true; $('ovCpu').hidden = false; };
+$('cpuBack').onclick = () => { $('ovCpu').hidden = true; $('ovStart').hidden = false; };
+$('cpuStart').onclick = () => { $('ovCpu').hidden = true; startCpu(false); camHint(); };
+$('cpuResume').onclick = () => { $('ovCpu').hidden = true; startCpu(true); camHint(); };
+$('btnInstall').onclick = doInstall; $('mInstall').onclick = doInstall;
+$('mUndo').onclick = () => { $('ovMenu').hidden = true; undoMove(); };
 $('btnShare').onclick = async () => {
   const text = '¿Una partida de Jaque de Piedra? Entrá acá:';
   if (navigator.share) { try { await navigator.share({ title: 'Jaque de Piedra', text, url: shareUrl() }); return; } catch (e) { if (e.name === 'AbortError') return; } }
@@ -1305,7 +1486,7 @@ $('btnCopy').onclick = async () => { try { await navigator.clipboard.writeText(s
 $('btnInvClose').onclick = () => $('ovInvite').hidden = true;
 $('btnRematch').onclick = () => { $('ovEnd').hidden = true; newGame(false); };
 $('btnEndClose').onclick = () => $('ovEnd').hidden = true;
-$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mClock').hidden = !mode; $('mRematch').textContent = mode === 'local' ? '♻️ Nueva partida' : '♻️ Revancha (nueva partida)'; $('ovMenu').hidden = false; };
+$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mClock').hidden = !mode; $('mUndo').hidden = !(mode === 'cpu' || mode === 'local'); $('mInstall').hidden = !installEvt; $('mRematch').textContent = isOnline() ? '♻️ Revancha (nueva partida)' : '♻️ Nueva partida'; $('ovMenu').hidden = false; };
 $('mClose').onclick = () => $('ovMenu').hidden = true;
 $('ovMenu').onclick = e => { if (e.target.id === 'ovMenu') $('ovMenu').hidden = true; };
 $('mInvite').onclick = () => { $('ovMenu').hidden = true; showInvite(); };
@@ -1314,7 +1495,7 @@ $('clockApply').onclick = () => { $('ovClock').hidden = true; localStorage.setIt
 $('clockClose').onclick = () => $('ovClock').hidden = true;
 $('mRematch').onclick = () => { $('ovMenu').hidden = true; if (confirm('¿Empezar una partida nueva?')) newGame(false); };
 $('mFlip').onclick = () => { $('ovMenu').hidden = true; viewFlip = !viewFlip; placeCamera(); };
-$('mHome').onclick = () => { if (peer) peer.destroy(); location.href = location.pathname; };
+$('mHome').onclick = () => { if (peer) peer.destroy(); cpuCancel(); location.href = location.pathname; };
 
 // Arranque
 loadModels();

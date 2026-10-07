@@ -1,0 +1,17 @@
+{
+  "name": "Jaque de Piedra",
+  "short_name": "Jaque",
+  "description": "Ajedrez de estatuas de piedra: patriotas contra realistas. Online, contra la PC o de a dos.",
+  "lang": "es-AR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#15110e",
+  "theme_color": "#15110e",
+  "icons": [
+    { "src": "iconos/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "iconos/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "iconos/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

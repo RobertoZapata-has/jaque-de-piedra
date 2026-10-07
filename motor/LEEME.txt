@@ -1,0 +1,3 @@
+Motor de ajedrez: Stockfish 18 (versión lite, un hilo) compilado a WebAssembly por Stockfish.js
+https://github.com/nmrugg/stockfish.js  ·  https://github.com/official-stockfish/Stockfish
+Licencia GPLv3: ver LICENCIA-Stockfish-GPLv3.txt
