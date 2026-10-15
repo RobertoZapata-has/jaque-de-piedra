@@ -136,6 +136,18 @@ h2{font-size:22px}
 .side button.sel.b{background:#a6372d;border-color:#cc5b4c;color:#fff}
 .side button.sel.r{background:var(--gold);border-color:#f3d79a;color:var(--gold-ink)}
 #thinking{display:inline-block;width:1.2em;text-align:left}
+#tut{position:fixed;left:12px;right:12px;bottom:calc(var(--sb) + 12px);z-index:26;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:12px 14px 12px;box-shadow:0 10px 30px #0008}
+#tut[hidden]{display:none}
+#learnList .stars{white-space:nowrap;min-width:78px;letter-spacing:0}
+.tut-head{display:flex;align-items:center;gap:10px}
+.tut-head b{font-family:Cinzel,Georgia,serif;color:var(--gold);font-size:17px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#tutStep{font-size:12.5px;color:var(--muted);white-space:nowrap}
+#tutExit{width:34px;height:34px;font-size:15px}
+#tutText{margin:8px 2px 10px;font-size:15px;line-height:1.4;min-height:3.2em}
+.tut-ctrl{display:grid;grid-template-columns:1fr 1fr 2fr 1fr;gap:8px}
+.tut-ctrl button{padding:11px 4px;border-radius:12px;border:1px solid var(--line);background:#30261d;color:var(--ink);font-size:16px;font-weight:700;cursor:pointer}
+.tut-ctrl button.primary{background:var(--gold);color:var(--gold-ink);border-color:#f3d79a}
+.tut-ctrl button:disabled{opacity:.35}
 .big{font-size:44px;margin-bottom:4px}
 
 /* chat */
@@ -182,6 +194,16 @@ h2{font-size:22px}
   <button class="ico" id="btnChat" aria-label="Chat" hidden>💬<span id="badge"></span></button>
 </div>
 <div id="toast"></div>
+<div id="tut" hidden>
+  <div class="tut-head"><b id="tutTitle"></b><span id="tutStep"></span><button class="ico" id="tutExit" aria-label="Salir de la lección">✕</button></div>
+  <p id="tutText"></p>
+  <div class="tut-ctrl">
+    <button type="button" id="tutFirst" aria-label="Al principio">⏮</button>
+    <button type="button" id="tutPrev" aria-label="Jugada anterior">◀</button>
+    <button type="button" id="tutPlay" class="primary">▶ Play</button>
+    <button type="button" id="tutNext" aria-label="Jugada siguiente">▶|</button>
+  </div>
+</div>
 <div id="shout"></div>
 <div id="peek"></div>
 
@@ -203,6 +225,7 @@ h2{font-size:22px}
     <button class="btn primary" id="btnHost">Crear partida online</button>
     <button class="btn" id="btnCpu">Jugar contra la PC</button>
     <button class="btn" id="btnLocal">Jugar los dos en este celu</button>
+    <button class="btn" id="btnLearn">📖 Aprender jugadas</button>
     <button class="btn" id="btnInstall" hidden>📲 Instalar como app</button>
   </div>
 </section>
@@ -245,6 +268,15 @@ h2{font-size:22px}
   </div>
 </section>
 
+<section class="overlay" id="ovLearn" hidden>
+  <div class="card">
+    <h2>Aprender</h2>
+    <p class="sub" style="margin-bottom:12px">Elegí una lección y tocá Play para ver cómo se mueven las piezas. Solo se ve en tu celu.</p>
+    <div class="lv" id="learnList"></div>
+    <button class="btn" id="learnBack">Volver</button>
+  </div>
+</section>
+
 <section class="overlay soft" id="ovPromo" hidden>
   <div class="card">
     <h2>¡Coronación!</h2>
@@ -279,6 +311,7 @@ h2{font-size:22px}
     <h2 style="text-align:center">Menú</h2>
     <button class="btn" id="mInvite">🔗 Link para tu amigo</button>
     <button class="btn" id="mUndo">↩️ Deshacer jugada</button>
+    <button class="btn" id="mLearn">📖 Aprender jugadas</button>
     <button class="btn" id="mClock">⏱ Reloj</button>
     <button class="btn" id="mRematch">♻️ Nueva partida</button>
     <button class="btn" id="mFlip">🔄 Girar el tablero</button>
@@ -1023,7 +1056,7 @@ const dec = s => ({ from: s.slice(0, 2), to: s.slice(2, 4), promotion: s[4] || u
 const movesList = () => chess.history({ verbose: true }).map(enc);
 const storeKey = () => room ? 'jp-room-' + room : mode === 'cpu' ? 'jp-cpu' : 'jp-local';
 const gameOver = () => chess.isGameOver() || !!timeoutLoser;
-function save() { if (!mode) return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host', clk: liveClock(), tl: timeoutLoser, lvl: cpuLevel, my: myColor, over: gameOver() })); } catch (e) {} }
+function save() { if (!mode || mode === 'tutorial') return; try { localStorage.setItem(storeKey(), JSON.stringify({ moves: movesList(), hostColor, isHost: mode === 'host', clk: liveClock(), tl: timeoutLoser, lvl: cpuLevel, my: myColor, over: gameOver() })); } catch (e) {} }
 function load(key) { try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; } }
 
 function spawn(type, color, sq) {
@@ -1040,7 +1073,7 @@ function rebuild(moves, st = {}) {
   updateMarks(); updateStatus(); updateRows(); save();
   if (gameOver()) showEnd(true);
 }
-function canMove() { return !busy && !gameOver() && (mode === 'local' || chess.turn() === myColor); }
+function canMove() { return mode !== 'tutorial' && !busy && !gameOver() && (mode === 'local' || chess.turn() === myColor); }
 
 /* ---------- reloj ---------- */
 function clockActive() { return clock.cfg > 0 && chess.history().length > 0 && !gameOver() && (mode === 'local' || mode === 'cpu' || connected); }
@@ -1067,9 +1100,9 @@ const fmt = ms => { if (ms < 10000) return (ms / 1000).toFixed(1); const s = Mat
 
 /* ---------- tanteador ---------- */
 function rowColors() { const v = viewColor(); return { bot: v, top: opp(v) }; }
-function playerName(c) { if (mode === 'local' || !mode) return c === 'w' ? 'Azules' : 'Rojos'; if (c === myColor) return 'Vos'; return mode === 'cpu' ? 'PC · ' + LEVELS[cpuLevel].name : 'Tu amigo'; }
+function playerName(c) { if (mode === 'local' || mode === 'tutorial' || !mode) return c === 'w' ? 'Azules' : 'Rojos'; if (c === myColor) return 'Vos'; return mode === 'cpu' ? 'PC · ' + LEVELS[cpuLevel].name : 'Tu amigo'; }
 function updateRows() {
-  const show = !!mode; $('rowTop').hidden = $('rowBot').hidden = !show; if (!show) return;
+  const show = !!mode && mode !== 'tutorial'; $('rowTop').hidden = $('rowBot').hidden = !show; if (!show) return;
   const caps = { w: [], b: [] };
   for (const m of chess.history({ verbose: true })) if (m.captured) caps[m.color].push(m.captured);
   const mat = { w: 0, b: 0 };
@@ -1137,6 +1170,7 @@ function explainIllegal(from, to) {
 async function onTap(sq) {
   if (!sq) return;
   if (!canMove()) {
+    if (mode === 'tutorial') { toast('Usá los botones de abajo para ver las jugadas'); return; }
     if (mode !== 'local' && !busy && !gameOver() && chess.turn() !== myColor) toast(mode === 'cpu' ? 'La PC está pensando…' : 'Es el turno de tu amigo');
     return;
   }
@@ -1273,6 +1307,7 @@ function updateStatus() {
   if (timeoutLoser) txt = 'Se acabó el tiempo';
   else if (chess.isCheckmate()) txt = 'Jaque mate';
   else if (chess.isGameOver()) txt = 'Tablas';
+  else if (mode === 'tutorial') txt = tut ? tut.title : 'Aprender';
   else if (mode === 'local') txt = t === 'w' ? 'Turno azules' : 'Turno rojos';
   else if (mode === 'cpu') txt = t === myColor ? 'Tu turno' : 'Piensa la PC';
   else txt = t === myColor ? 'Tu turno' : 'Turno de tu amigo';
@@ -1288,10 +1323,10 @@ function shout(kind) {
   let txt, sub = '';
   if (kind === 'check') {
     txt = '¡JAQUE!';
-    sub = mode === 'local' ? (chess.turn() === 'w' ? 'Rey azul en peligro' : 'Rey rojo en peligro') : chess.turn() === myColor ? '¡Cuidá a tu rey!' : '¡Le diste jaque!';
+    sub = mode === 'local' || mode === 'tutorial' ? (chess.turn() === 'w' ? 'Rey azul en peligro' : 'Rey rojo en peligro') : chess.turn() === myColor ? '¡Cuidá a tu rey!' : '¡Le diste jaque!';
   } else if (kind === 'mate') {
     txt = 'JAQUE<br>MATE';
-    const w = opp(chess.turn()); sub = mode === 'local' ? (w === 'w' ? 'Ganan los azules' : 'Ganan los rojos') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
+    const w = opp(chess.turn()); sub = mode === 'local' || mode === 'tutorial' ? (w === 'w' ? 'Ganan los azules' : 'Ganan los rojos') : w === myColor ? '¡Ganaste!' : 'Tu rey cayó';
   } else {
     txt = '¡TIEMPO!';
     sub = mode === 'local' ? `Se les acabó a los ${TEAM(timeoutLoser)}` : timeoutLoser === myColor ? 'Se te acabó el reloj' : (mode === 'cpu' ? '¡A la PC se le acabó el reloj!' : '¡A tu amigo se le acabó el reloj!');
@@ -1304,6 +1339,7 @@ function shout(kind) {
 }
 
 function showEnd(silent) {
+  if (mode === 'tutorial') return;
   if (endShown) return; endShown = true;
   let icon = '♚', title = 'Tablas', text = '';
   if (timeoutLoser) {
@@ -1649,6 +1685,125 @@ if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.
   addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(e => console.warn('SW', e)));
 }
 
+/* =========================================================
+   APRENDER: tutoriales con Play (solo en este celu)
+   ========================================================= */
+const TUTORIALS = [
+  { title: 'Enroque corto', sub: 'Poné a salvo al rey del lado derecho', side: 'w',
+    intro: 'Para enrocar no puede haber piezas entre el rey y la torre. Mirá cómo se despeja el camino y después el enroque. Tocá Play.',
+    moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'O-O'],
+    notes: ['Azules: peón del rey dos casillas al centro.', 'Rojos: responden igual.',
+      'Azules: sale el caballo del lado del rey. Ya hay una casilla libre.', 'Rojos: sacan su caballo.',
+      'Azules: sale el alfil. Entre el rey y la torre ya no queda nada.', 'Rojos: sacan su alfil.',
+      '¡Enroque corto! El rey se corre dos casillas hacia la torre y la torre salta al otro lado. En el juego: tocá el rey y llevalo dos casillas a la derecha.'] },
+  { title: 'Enroque largo', sub: 'El enroque del lado de la dama', side: 'w',
+    intro: 'Del lado de la dama hay tres piezas que despejar: caballo, alfil y la dama. Tocá Play.',
+    moves: ['d4', 'd5', 'Nc3', 'Nc6', 'Bf4', 'Bf5', 'Qd2', 'Qd7', 'O-O-O'],
+    notes: ['Azules: peón de la dama al centro.', 'Rojos: igual.', 'Azules: sale el caballo de la dama.', 'Rojos: su caballo.',
+      'Azules: sale el alfil de la dama.', 'Rojos: su alfil.', 'Azules: la dama sube un paso y deja libre el camino.', 'Rojos: lo mismo.',
+      '¡Enroque largo! El rey va dos casillas a la izquierda y la torre salta a su lado, mirando al centro y lista para atacar.'] },
+  { title: 'Apertura Italiana', sub: 'Con azules: centro, caballo y alfil a f7', side: 'w',
+    intro: 'La apertura más natural para empezar con blancas (azules). Tocá Play y mirá jugada por jugada.',
+    moves: ['e4', 'e5', 'Nf3', 'Nc6', 'Bc4', 'Bc5', 'c3', 'Nf6', 'd3', 'd6', 'O-O'],
+    notes: ['Vos (azules): peón del rey al centro. Ocupa el medio y libera la dama y el alfil.', 'Rojos: hacen lo mismo.',
+      'Vos: el caballo sale atacando el peón rojo de e5.', 'Rojos: defienden ese peón con su caballo.',
+      'Vos: el alfil apunta a f7, la casilla más débil del rival: solo la cuida el rey.', 'Rojos: copian la idea y apuntan a tu f2.',
+      'Vos: este peón prepara avanzar a d4 para ganar más centro.', 'Rojos: sacan el otro caballo, que ataca tu peón de e4.',
+      'Vos: defendés e4 y le abrís camino al otro alfil.', 'Rojos: hacen lo mismo.',
+      'Vos: enroque. Rey a salvo y torre en juego. Apertura lista: todo desarrollado.'] },
+  { title: 'Defensa Siciliana', sub: 'Con rojos, cuando te abren con e4', side: 'b',
+    intro: 'Cuando el rival abre con el peón del rey, en vez de copiarlo le contestás desde el costado. Tocá Play.',
+    moves: ['e4', 'c5', 'Nf3', 'd6', 'd4', 'cxd4', 'Nxd4', 'Nf6', 'Nc3', 'a6'],
+    notes: ['Azules abren con el peón del rey.', 'Vos (rojos): peón a c5. Peleás el centro desde el costado.',
+      'Azules sacan el caballo.', 'Vos: d6 controla e5 y le abre camino a tu alfil.',
+      'Azules empujan d4 y abren el centro.', 'Vos: comés. Cambiás un peón de costado por uno del centro: buen negocio.',
+      'Azules recuperan con el caballo.', 'Vos: el caballo sale atacando el peón de e4.',
+      'Azules lo defienden con el otro caballo.', 'Vos: a6, la jugada clave (variante Najdorf). Le quita la casilla b5 a sus piezas y prepara tu avance b5.'] },
+  { title: 'Defensa Caro-Kann', sub: 'Con rojos: sólida y difícil de romper', side: 'b',
+    intro: 'Una defensa tranquila para negras (rojos): primero preparás, después peleás el centro. Tocá Play.',
+    moves: ['e4', 'c6', 'd4', 'd5', 'Nc3', 'dxe4', 'Nxe4', 'Bf5', 'Ng3', 'Bg6'],
+    notes: ['Azules abren con el peón del rey.', 'Vos (rojos): c6 prepara d5 con apoyo.',
+      'Azules suman otro peón al centro.', 'Vos: d5 ataca el peón de e4.',
+      'Azules lo defienden con el caballo.', 'Vos: comés en e4.',
+      'Azules recuperan con el caballo.', 'Vos: sacás el alfil ANTES de jugar e6; si no, queda encerrado detrás de tus peones.',
+      'Azules atacan tu alfil con el caballo.', 'Vos: el alfil se corre a g6 y sigue activo. Después seguí con e6, Cd7, Cf6 y enroque.'] },
+  { title: 'La trampa del mate pastor', sub: 'Aprendé a verla venir', side: 'b',
+    intro: 'El mate más rápido para principiantes. Mirá cómo funciona para que no te lo hagan. Tocá Play.',
+    moves: ['e4', 'e5', 'Bc4', 'Nc6', 'Qh5', 'Nf6', 'Qxf7#'],
+    notes: ['Azules: peón del rey al centro.', 'Rojos: igual.',
+      'Azules: el alfil apunta a f7. Ojo: f7 solo lo defiende el rey.', 'Rojos: sacan el caballo, todo normal.',
+      'Azules: ¡la dama sale temprano y también apunta a f7! Dama y alfil atacan la misma casilla.',
+      'Rojos: error. El caballo amenaza la dama pero no defiende f7. Lo correcto era g6 o la dama a e7.',
+      '¡Mate! La dama come en f7 protegida por el alfil y el rey no tiene escape. Si te pasa, jugá g6 y la dama se tiene que ir.'] },
+];
+TUTORIALS.forEach(t => { const c = new Chess(); t.enc = t.moves.map(s => enc(c.move(s))); });
+
+let tut = null, tutIdx = 0, tutPlaying = false, tutToken = 0;
+const tutArrow = new THREE.Group(); tutArrow.visible = false; tutArrow.renderOrder = 999; scene.add(tutArrow);
+function showTutArrow(from, to, color) {
+  tutArrow.clear();
+  const a = sqPos(from), b = sqPos(to), dx = b.x - a.x, dz = b.z - a.z, L = Math.hypot(dx, dz);
+  const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: .85, depthTest: false });
+  const shaft = new THREE.Mesh(new THREE.PlaneGeometry(.16, Math.max(.05, L - .5)).rotateX(-Math.PI / 2).translate(0, 0, -(L - .5) / 2), mat);
+  const hs = new THREE.Shape(); hs.moveTo(-.27, 0); hs.lineTo(.27, 0); hs.lineTo(0, .42); hs.closePath();
+  const head = new THREE.Mesh(new THREE.ShapeGeometry(hs).rotateX(-Math.PI / 2).translate(0, 0, -(L - .5)), mat);
+  [shaft, head].forEach(m => { m.renderOrder = 999; tutArrow.add(m); });
+  tutArrow.position.set(a.x, BOARD_Y + .06, a.z); tutArrow.rotation.y = Math.atan2(-dx, -dz); tutArrow.visible = true;
+}
+function renderTut() {
+  if (!tut) return;
+  const n = tut.moves.length;
+  $('tutTitle').textContent = tut.title;
+  $('tutStep').textContent = tutIdx ? `Jugada ${tutIdx} de ${n}` : `${n} jugadas`;
+  $('tutText').textContent = tutIdx ? tut.notes[tutIdx - 1] : tut.intro;
+  $('tutPlay').textContent = tutPlaying ? '⏸ Pausa' : tutIdx >= n ? '↺ De nuevo' : '▶ Play';
+  $('tutFirst').disabled = $('tutPrev').disabled = tutIdx === 0;
+  $('tutNext').disabled = tutIdx >= n;
+  if (tutIdx < n && !busy) { const m = dec(tut.enc[tutIdx]); showTutArrow(m.from, m.to, chess.turn() === 'w' ? '#5b8cff' : '#ff6a5a'); }
+  else tutArrow.visible = false;
+}
+async function tutStep() {
+  if (!tut || busy || tutIdx >= tut.moves.length) return;
+  const mv = dec(tut.enc[tutIdx]); tutIdx++; tutArrow.visible = false;
+  $('tutText').textContent = tut.notes[tutIdx - 1]; $('tutStep').textContent = `Jugada ${tutIdx} de ${tut.moves.length}`;
+  await new Promise(res => enqueue(async () => { await applyMove(mv, false); res(); }));
+  renderTut();
+}
+function tutGoto(i) {
+  tutToken++; tutPlaying = false;
+  if (busy) return;
+  tutIdx = Math.max(0, Math.min(i, tut.moves.length));
+  rebuild(tut.enc.slice(0, tutIdx)); renderTut();
+}
+async function tutPlay() {
+  if (tutPlaying) { tutToken++; tutPlaying = false; renderTut(); return; }
+  if (tutIdx >= tut.moves.length) tutGoto(0);
+  const tok = ++tutToken; tutPlaying = true; renderTut();
+  await new Promise(r => setTimeout(r, 500));
+  while (tok === tutToken && tutIdx < tut.moves.length) {
+    await tutStep();
+    if (tok !== tutToken) return;
+    await new Promise(r => setTimeout(r, 2300));
+  }
+  if (tok === tutToken) { tutPlaying = false; renderTut(); }
+}
+function startTutorial(i) {
+  cpuCancel();
+  tut = TUTORIALS[i]; mode = 'tutorial'; room = null; myColor = hostColor = tut.side; viewFlip = false;
+  clock = { cfg: 0, w: 0, b: 0 }; tutIdx = 0; tutPlaying = false; tutToken++;
+  $('ovLearn').hidden = true; $('ovStart').hidden = true; $('tut').hidden = false;
+  rebuild([]); resetView(); placeCamera(); renderTut();
+}
+function renderLearn() {
+  const box = $('learnList'); box.innerHTML = '';
+  TUTORIALS.forEach((t, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.innerHTML = `<span class="stars">${t.side === 'w' ? '<i style="color:#7ea6f0">●</i> Azules' : '<i style="color:#ef7a6c">●</i> Rojos'}</span><span><b>${t.title}</b><small>${t.sub}</small></span>`;
+    b.onclick = () => startTutorial(i);
+    box.appendChild(b);
+  });
+}
+
 /* ---------- selector de reloj ---------- */
 const CLOCK_OPTS = [0, 1, 3, 5, 10, 15];
 let clockChoice = +(localStorage.getItem('jp-clock') || 0);
@@ -1799,6 +1954,14 @@ $('btnCpu').onclick = () => { Sfx.ensure(); renderCpuSetup(); $('ovStart').hidde
 $('cpuBack').onclick = () => { $('ovCpu').hidden = true; $('ovStart').hidden = false; };
 $('cpuStart').onclick = () => { $('ovCpu').hidden = true; startCpu(false); camHint(); };
 $('cpuResume').onclick = () => { $('ovCpu').hidden = true; startCpu(true); camHint(); };
+$('btnLearn').onclick = () => { Sfx.ensure(); renderLearn(); $('ovStart').hidden = true; $('ovLearn').hidden = false; };
+$('learnBack').onclick = () => { $('ovLearn').hidden = true; if (mode && mode !== 'tutorial') return; if (!tut) $('ovStart').hidden = false; };
+$('mLearn').onclick = () => { $('ovMenu').hidden = true; renderLearn(); $('ovLearn').hidden = false; };
+$('tutPlay').onclick = () => { Sfx.ensure(); tutPlay(); };
+$('tutNext').onclick = () => { tutToken++; tutPlaying = false; tutStep(); };
+$('tutPrev').onclick = () => tutGoto(tutIdx - 1);
+$('tutFirst').onclick = () => tutGoto(0);
+$('tutExit').onclick = () => { location.href = location.pathname; };
 $('btnInstall').onclick = doInstall; $('mInstall').onclick = doInstall;
 $('mUndo').onclick = () => { $('ovMenu').hidden = true; undoMove(); };
 $('btnShare').onclick = async () => {
@@ -1810,7 +1973,7 @@ $('btnCopy').onclick = async () => { try { await navigator.clipboard.writeText(s
 $('btnInvClose').onclick = () => $('ovInvite').hidden = true;
 $('btnRematch').onclick = () => { $('ovEnd').hidden = true; newGame(false); };
 $('btnEndClose').onclick = () => $('ovEnd').hidden = true;
-$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mClock').hidden = !mode; $('mUndo').hidden = !(mode === 'cpu' || mode === 'local'); $('mInstall').hidden = !installEvt; $('mRematch').textContent = isOnline() ? '♻️ Revancha (nueva partida)' : '♻️ Nueva partida'; $('ovMenu').hidden = false; };
+$('btnMenu').onclick = () => { $('mInvite').hidden = mode !== 'host'; $('mClock').hidden = !mode; $('mUndo').hidden = !(mode === 'cpu' || mode === 'local'); $('mLearn').hidden = isOnline(); $('mRematch').hidden = mode === 'tutorial'; if (mode === 'tutorial') $('mClock').hidden = true; $('mInstall').hidden = !installEvt; $('mRematch').textContent = isOnline() ? '♻️ Revancha (nueva partida)' : '♻️ Nueva partida'; $('ovMenu').hidden = false; };
 $('mClose').onclick = () => $('ovMenu').hidden = true;
 const cineLabel = () => $('mCine').textContent = '🎬 Cámara de cine: ' + (cineOn ? 'sí' : 'no');
 cineLabel();

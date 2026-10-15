@@ -1,6 +1,6 @@
 // Jaque de Piedra · service worker
 // Cambiar VERSION cada vez que se publica, para que los celulares bajen lo nuevo.
-const VERSION = 'jp-2026-10-15a';
+const VERSION = 'jp-2026-10-15b';
 const CORE = [
   './', './index.html', './manifest.webmanifest',
   './iconos/icon-192.png', './iconos/icon-512.png', './iconos/icon-maskable-512.png',
