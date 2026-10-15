@@ -522,21 +522,42 @@ const PIECE_GEO = {
     limb(V(.17, .9, 0), V(.025, .74, -.24), .034), limb(V(-.17, .9, 0), V(-.025, .74, -.24), .034),
   ]),
 };
-{ // Caballo
-  const s = new THREE.Shape();
-  s.moveTo(-.22, .18); s.lineTo(.2, .18); s.quadraticCurveTo(.12, .36, .14, .46); s.lineTo(.32, .56);
-  s.quadraticCurveTo(.39, .64, .3, .71); s.lineTo(.1, .77); s.quadraticCurveTo(.06, .86, .02, .92); s.lineTo(-.02, 1.0);
-  s.lineTo(-.08, .92); s.quadraticCurveTo(-.22, .86, -.25, .66); s.quadraticCurveTo(-.27, .4, -.22, .18);
-  const head = new THREE.ExtrudeGeometry(s, { depth: .2, bevelEnabled: true, bevelThickness: .04, bevelSize: .035, bevelSegments: 2, curveSegments: 8 });
-  head.translate(0, 0, -.1); head.rotateY(Math.PI / 2); head.computeVertexNormals();
+{ // Caballo con jinete (granadero con sable en alto), estilo estatua ecuestre
+  const legs = (pts, r) => [...pts.slice(1).map((q, i) => limb(pts[i], q, r)), ...pts.slice(1, -1).map(q => sph(r * 1.08, q.x, q.y, q.z))];
   PIECE_GEO.n = merge([
-    base(.32, .12), lathe([[0, .12], [.24, .12], [.22, .2], [0, .2]]), head,
-    cone(.032, .09, .065, 1.0, .06), cone(.032, .09, -.065, 1.0, .06),
-    sph(.026, .13, .82, -.02), sph(.026, -.13, .82, -.02),
-    limb(V(0, .5, .26), V(0, .93, .07), .04),
+    base(.33, .1),
+    box(.28, .06, .62, 0, .13, .01),                                         // pedestal
+    // caballo
+    T(new THREE.SphereGeometry(.125, 18, 12), { y: .44, z: .02, s: [1, .95, 2.0] }),   // cuerpo
+    sph(.118, 0, .45, -.17), sph(.122, 0, .46, .19),                          // pecho y anca
+    ...legs([V(-.065, .42, -.17), V(-.065, .29, -.18), V(-.065, .16, -.17)], .036),   // mano izquierda apoyada
+    ...legs([V(.065, .42, -.17), V(.07, .32, -.28), V(.07, .25, -.21)], .034),        // mano derecha levantada
+    ...legs([V(-.065, .44, .21), V(-.065, .3, .27), V(-.065, .16, .23)], .038),       // patas traseras
+    ...legs([V(.065, .44, .21), V(.065, .3, .27), V(.065, .16, .23)], .038),
+    cyl(.042, .047, .04, -.065, .18, -.17, 10), cyl(.04, .045, .04, .07, .24, -.21, 10, { rx: .5 }),
+    cyl(.042, .047, .04, -.065, .18, .23, 10), cyl(.042, .047, .04, .065, .18, .23, 10),
+    limb(V(0, .46, -.17), V(0, .73, -.3), .085),                               // cuello
+    sph(.075, 0, .73, -.31),
+    T(new THREE.SphereGeometry(.065, 16, 12), { y: .7, z: -.4, rx: -.75, s: [.8, .9, 1.85] }),  // cabeza
+    sph(.05, 0, .63, -.47),                                                    // hocico
+    cone(.024, .08, -.032, .8, -.33, { rx: -.25 }), cone(.024, .08, .032, .8, -.33, { rx: -.25 }), // orejas
+    limb(V(0, .53, -.12), V(0, .79, -.27), .034),                              // crin
+    limb(V(0, .52, .31), V(0, .26, .39), .034), sph(.04, 0, .25, .39),         // cola
+    T(new THREE.CylinderGeometry(.13, .13, .03, 16), { y: .56, z: .02, s: [1, 1, 1.15] }),    // montura
+    // jinete
+    lathe([[0, .57], [.1, .57], [.095, .66], [.08, .74], [.1, .79], [.06, .82], [0, .82]], 16),   // torso
+    ...legs([V(-.08, .6, -.01), V(-.14, .5, -.07), V(-.13, .38, -.03)], .036),
+    ...legs([V(.08, .6, -.01), V(.14, .5, -.07), V(.13, .38, -.03)], .036),
+    sph(.07, 0, .89, 0),                                                       // cabeza
+    cyl(.07, .058, .12, 0, .99, 0, 14), cyl(.073, .073, .018, 0, 1.055, 0, 14),// morrión
+    sph(.034, 0, 1.08, -.045),                                                 // penacho
+    box(.1, .02, .05, 0, .935, -.06),                                          // visera
+    ...legs([V(.1, .78, 0), V(.16, .87, -.04), V(.18, .97, -.06)], .034),     // brazo con sable
+    box(.03, .36, .014, .185, 1.14, -.06, { rz: -.1 }), box(.09, .024, .024, .18, .975, -.06),
+    ...legs([V(-.1, .78, 0), V(-.09, .7, -.1), V(-.05, .65, -.18)], .034),    // brazo con riendas
   ]);
 }
-const HEIGHT = { p: .9, b: 1.15, r: .95, n: 1.03, q: 1.2, k: 1.42 };
+const HEIGHT = { p: .9, b: 1.15, r: .95, n: 1.12, q: 1.2, k: 1.42 };
 const PIECE_SCALE = 1.12;
 const VALUE = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 const GLYPH = { p: '♟', n: '♞', b: '♝', r: '♜', q: '♛', k: '♚' };
